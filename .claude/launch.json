@@ -1,0 +1,11 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "mock",
+      "runtimeExecutable": "sh",
+      "runtimeArgs": ["-c", "SENSE_MOCK=1 DATA_DIR=./data TZ=America/Edmonton node packages/server/dist/index.js"],
+      "port": 3000
+    }
+  ]
+}

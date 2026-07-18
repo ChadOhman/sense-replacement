@@ -1,0 +1,79 @@
+@import 'tailwindcss';
+
+:root {
+  /* dark-first energy dashboard */
+  --page-plane: #0d0d0d;
+  --surface-1: #1a1a19;
+  --surface-2: #232322;
+  --border: #333331;
+  --text-primary: #f5f5f4;
+  --text-secondary: #b3b3af;
+  --text-muted: #7c7c76;
+  --gridline: #2a2a28;
+  --axis: #4a4a46;
+  --series-1: #3987e5;
+  --series-2: #2fb8b3;
+  --series-3: #e5b93a;
+  --series-4: #4cb861;
+  --series-5: #9a7ce8;
+  --series-6: #e05d5d;
+  --series-7: #d86bb0;
+  --series-8: #e08b3f;
+  --status-good: #4cb861;
+  --status-warning: #e5b93a;
+  --status-serious: #e08b3f;
+  --status-critical: #e05d5d;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+}
+
+body {
+  margin: 0;
+  background: var(--page-plane);
+  color: var(--text-primary);
+  font-family: system-ui, -apple-system, 'Segoe UI', sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+
+.tabular-nums {
+  font-variant-numeric: tabular-nums;
+}
+
+.card {
+  background: var(--surface-1);
+  border: 1px solid var(--border);
+  border-radius: 0.75rem;
+}
+
+.u-tooltip {
+  position: absolute;
+  pointer-events: none;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: 0.375rem;
+  padding: 0.25rem 0.5rem;
+  font-size: 0.75rem;
+  color: var(--text-primary);
+  white-space: nowrap;
+  z-index: 10;
+}
+
+@keyframes pulse-bg {
+  0%,
+  100% {
+    opacity: 0.5;
+  }
+  50% {
+    opacity: 0.9;
+  }
+}
+
+.skeleton {
+  background: var(--surface-2);
+  border-radius: 0.375rem;
+  animation: pulse-bg 1.5s ease-in-out infinite;
+}

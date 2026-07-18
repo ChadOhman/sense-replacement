@@ -1,0 +1,28 @@
+{
+  "name": "sense-replacement",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "concurrently -n server,web \"pnpm --filter @sense/server dev\" \"pnpm --filter @sense/web dev\"",
+    "build": "pnpm -r build",
+    "test": "pnpm -r test",
+    "lint": "eslint .",
+    "format": "prettier --write .",
+    "probe": "tsx scripts/probe.ts",
+    "record-fixtures": "tsx scripts/record-fixtures.ts"
+  },
+  "devDependencies": {
+    "@types/node": "^24.0.0",
+    "concurrently": "^9.1.2",
+    "eslint": "^9.28.0",
+    "prettier": "^3.5.3",
+    "tsx": "^4.19.4",
+    "typescript": "^5.8.3",
+    "typescript-eslint": "^8.33.0",
+    "vitest": "^3.2.0"
+  },
+  "engines": {
+    "node": ">=22"
+  }
+}
