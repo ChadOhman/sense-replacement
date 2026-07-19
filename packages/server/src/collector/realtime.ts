@@ -1,7 +1,7 @@
 import type { AppContext } from '../context.js';
 import type { LiveDevice, LiveFrame } from '@sense/shared';
 import type { SenseRealtimePayload } from '../sense/types.js';
-import { aggregateFrames, bucketStart } from './rollup.js';
+import { aggregateFrames, aggregateLegVoltages, bucketStart } from './rollup.js';
 import { BrownoutDetector, type ActiveBrownout } from './brownout.js';
 import { FloatingNeutralDetector, type ActiveNeutralEpisode } from './neutral.js';
 
@@ -30,6 +30,7 @@ export class RealtimeCollector {
   private readonly insertNeutralEventStmt;
   private readonly endNeutralEventStmt;
   private readonly deleteNeutralEventStmt;
+  private readonly insertVoltageRollupStmt;
 
   get activeBrownout(): ActiveBrownout | null {
     return this.brownouts.active;
@@ -73,6 +74,10 @@ export class RealtimeCollector {
        WHERE id = ?`,
     );
     this.deleteNeutralEventStmt = ctx.db.prepare('DELETE FROM neutral_events WHERE id = ?');
+    this.insertVoltageRollupStmt = ctx.db.prepare(
+      `INSERT OR REPLACE INTO voltage_rollup (resolution, bucket, leg, v_avg, v_min, v_max, sample_count)
+       VALUES (30, ?, ?, ?, ?, ?, ?)`,
+    );
     // A crash mid-event leaves a dangling open row; close it with unknown
     // duration rather than letting it read as "active" forever.
     ctx.db.prepare('UPDATE voltage_events SET ended_ts = started_ts WHERE ended_ts IS NULL').run();
@@ -232,12 +237,16 @@ export class RealtimeCollector {
       const frames = this.ctx.ring.range(bStart, bStart + 30);
       const agg = aggregateFrames([...frames]);
       if (!agg) return;
+      const legAggs = aggregateLegVoltages(frames);
       this.ctx.db.transaction(() => {
         this.insertPowerRollupStmt.run(bStart, agg.wAvg, agg.wMin, agg.wMax, agg.volts, agg.hz, agg.sampleCount);
         for (const [deviceId, { wAvg }] of agg.perDevice) {
           if (wAvg <= DEVICE_ROLLUP_MIN_W) continue;
           if (!this.deviceExistsStmt.get(deviceId)) continue;
           this.insertDevicePowerRollupStmt.run(bStart, deviceId, wAvg, agg.sampleCount);
+        }
+        for (const [leg, v] of legAggs) {
+          this.insertVoltageRollupStmt.run(bStart, leg, v.vAvg, v.vMin, v.vMax, v.sampleCount);
         }
       })();
     } catch (err) {

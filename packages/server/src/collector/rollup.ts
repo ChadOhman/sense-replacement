@@ -54,6 +54,39 @@ export function aggregateFrames(frames: LiveFrame[]): FrameAggregate | null {
   };
 }
 
+export interface LegVoltageAggregate {
+  vAvg: number;
+  vMin: number;
+  vMax: number;
+  sampleCount: number;
+}
+
+/** Per-leg voltage aggregation over a bucket. A leg is averaged only over the
+ *  frames in which it was reported (missing readings are gaps, not zeros). */
+export function aggregateLegVoltages(frames: readonly LiveFrame[]): Map<number, LegVoltageAggregate> {
+  const legs = new Map<number, { sum: number; min: number; max: number; n: number }>();
+  for (const f of frames) {
+    for (let i = 0; i < f.voltageLegs.length; i++) {
+      const v = f.voltageLegs[i]!;
+      if (v <= 20) continue; // meter glitch, same floor as the detectors
+      const s = legs.get(i);
+      if (s) {
+        s.sum += v;
+        if (v < s.min) s.min = v;
+        if (v > s.max) s.max = v;
+        s.n += 1;
+      } else {
+        legs.set(i, { sum: v, min: v, max: v, n: 1 });
+      }
+    }
+  }
+  const out = new Map<number, LegVoltageAggregate>();
+  for (const [leg, s] of legs) {
+    out.set(leg, { vAvg: s.sum / s.n, vMin: s.min, vMax: s.max, sampleCount: s.n });
+  }
+  return out;
+}
+
 /** Aligned floor of ts to the given resolution (seconds). */
 export function bucketStart(ts: number, resolution: number): number {
   return Math.floor(ts / resolution) * resolution;

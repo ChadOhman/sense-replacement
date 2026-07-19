@@ -1,10 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
-import type {
-  NeutralEventsResponse,
-  StatusResponse,
-  SummaryResponse,
-  VoltageEventsResponse,
-} from '@sense/shared';
+import { Link } from 'react-router-dom';
+import type { NeutralEventsResponse, StatusResponse, SummaryResponse } from '@sense/shared';
 import { get } from '../api/client.js';
 import { useLiveSocket } from '../hooks/useLiveSocket.js';
 import { LivePowerChart } from '../components/charts/LivePowerChart.js';
@@ -30,12 +26,6 @@ function VoltageChip({ volts }: { volts: number }) {
   );
 }
 
-function formatDuration(seconds: number): string {
-  if (seconds < 60) return `${seconds}s`;
-  if (seconds < 3600) return `${Math.floor(seconds / 60)}m ${seconds % 60}s`;
-  return `${Math.floor(seconds / 3600)}h ${Math.floor((seconds % 3600) / 60)}m`;
-}
-
 export function Live() {
   const { frame, series, stale } = useLiveSocket();
   const summary = useQuery({
@@ -47,11 +37,6 @@ export function Live() {
     queryKey: ['status'],
     queryFn: () => get<StatusResponse>('/api/status'),
     refetchInterval: 5000,
-  });
-  const voltageEvents = useQuery({
-    queryKey: ['voltage-events'],
-    queryFn: () => get<VoltageEventsResponse>('/api/voltage-events'),
-    refetchInterval: 30_000,
   });
   const neutralEvents = useQuery({
     queryKey: ['neutral-events'],
@@ -187,70 +172,9 @@ export function Live() {
             </span>
           </div>
         )}
-        {(voltageEvents.data?.events.length ?? 0) === 0 &&
-        (neutralEvents.data?.events.length ?? 0) === 0 ? (
-          <div className="py-3 text-center text-sm" style={{ color: 'var(--status-good)' }}>
-            ✓ No brownouts or leg divergence in the last 30 days
-          </div>
-        ) : (
-          <ul className="divide-y" style={{ borderColor: 'var(--border)' }}>
-            {[
-              ...(voltageEvents.data?.events ?? []).map((e) => ({
-                key: `v${e.id}`,
-                startedTs: e.startedTs,
-                endedTs: e.endedTs,
-                label: e.endedTs === null ? 'ACTIVE' : 'BROWNOUT',
-                detail: (
-                  <>
-                    leg {e.leg + 1} · min <span className="tabular-nums">{e.minVolts.toFixed(1)} V</span>
-                  </>
-                ),
-              })),
-              ...(neutralEvents.data?.events ?? []).map((e) => ({
-                key: `n${e.id}`,
-                startedTs: e.startedTs,
-                endedTs: e.endedTs,
-                label: e.endedTs === null ? 'ACTIVE' : 'DIVERGENCE',
-                detail: (
-                  <>
-                    legs split{' '}
-                    <span className="tabular-nums">
-                      {e.peakHighVolts.toFixed(1)}/{e.peakLowVolts.toFixed(1)} V
-                    </span>{' '}
-                    · spread <span className="tabular-nums">{e.maxSpreadVolts.toFixed(1)} V</span>
-                  </>
-                ),
-              })),
-            ]
-              .sort((a, b) => b.startedTs - a.startedTs)
-              .slice(0, 10)
-              .map((e) => (
-                <li key={e.key} className="flex items-center justify-between py-2 text-sm">
-                  <span>
-                    <span
-                      className="mr-2 inline-block rounded-full px-2 py-0.5 text-xs font-medium"
-                      style={{
-                        background: 'var(--surface-2)',
-                        color: e.endedTs === null ? 'var(--status-critical)' : 'var(--status-warning)',
-                      }}
-                    >
-                      {e.label}
-                    </span>
-                    {e.detail}
-                    {e.endedTs !== null && e.endedTs > e.startedTs && (
-                      <span style={{ color: 'var(--text-muted)' }}>
-                        {' '}
-                        · {formatDuration(e.endedTs - e.startedTs)}
-                      </span>
-                    )}
-                  </span>
-                  <span className="tabular-nums" style={{ color: 'var(--text-muted)' }}>
-                    {formatRelativeTime(e.startedTs)}
-                  </span>
-                </li>
-              ))}
-          </ul>
-        )}
+        <Link to="/power-quality" className="text-sm" style={{ color: 'var(--series-1)' }}>
+          View power quality →
+        </Link>
       </div>
     </div>
   );

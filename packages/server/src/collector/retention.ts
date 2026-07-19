@@ -34,6 +34,17 @@ function compact(db: Db, from: number, to: number, ageS: number, now: number): v
      WHERE resolution = ${from} AND bucket < ? AND (bucket / ${to}) * ${to} + ${to} <= ?
      GROUP BY b, device_id`,
   ).run(cutoff, cutoff);
+
+  db.prepare(
+    `INSERT OR IGNORE INTO voltage_rollup (resolution, bucket, leg, v_avg, v_min, v_max, sample_count)
+     SELECT ${to}, (bucket / ${to}) * ${to} AS b, leg,
+       SUM(v_avg * sample_count) / SUM(sample_count),
+       MIN(v_min), MAX(v_max),
+       SUM(sample_count)
+     FROM voltage_rollup
+     WHERE resolution = ${from} AND bucket < ? AND (bucket / ${to}) * ${to} + ${to} <= ?
+     GROUP BY b, leg`,
+  ).run(cutoff, cutoff);
 }
 
 export function compact30to300(db: Db, now: number): void {
@@ -50,8 +61,10 @@ export function pruneOldRollups(db: Db, now: number): void {
   // deleted here was compacted long ago.
   db.prepare('DELETE FROM power_rollup WHERE resolution = 30 AND bucket < ?').run(now - RETAIN_30_S);
   db.prepare('DELETE FROM device_power_rollup WHERE resolution = 30 AND bucket < ?').run(now - RETAIN_30_S);
+  db.prepare('DELETE FROM voltage_rollup WHERE resolution = 30 AND bucket < ?').run(now - RETAIN_30_S);
   db.prepare('DELETE FROM power_rollup WHERE resolution = 300 AND bucket < ?').run(now - RETAIN_300_S);
   db.prepare('DELETE FROM device_power_rollup WHERE resolution = 300 AND bucket < ?').run(now - RETAIN_300_S);
+  db.prepare('DELETE FROM voltage_rollup WHERE resolution = 300 AND bucket < ?').run(now - RETAIN_300_S);
 }
 
 export function registerRetentionJob(ctx: AppContext, scheduler: Scheduler): void {

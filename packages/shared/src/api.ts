@@ -75,6 +75,46 @@ export interface NeutralEventsResponse {
   events: NeutralEvent[]; // newest first; an active episode has endedTs === null
 }
 
+/** One rollup bucket of a single leg's voltage. */
+export interface VoltagePoint {
+  t: number; // bucket start, epoch seconds UTC
+  vAvg: number;
+  vMin: number;
+  vMax: number;
+}
+
+/** GET /api/voltage-history?from=&to= — per-leg voltage series. */
+export interface VoltageHistoryResponse {
+  resolution: number; // seconds: 30 | 300 | 3600
+  /** Index = leg (0-based). Empty array if no voltage data in range. */
+  legs: VoltagePoint[][];
+}
+
+/** GET /api/voltage-summary */
+export interface VoltageSummaryResponse {
+  /** Live per-leg voltage from the latest frame; empty when no live data. */
+  nowVolts: number[];
+  /** Reference nominal for the normal band (learned from the data, ~120). */
+  nominalVolts: number;
+  /** Per-leg stats over the trailing 24 h, from 30s sustained averages. */
+  legs: {
+    avg: number | null;
+    minSustained: number | null;
+    maxSustained: number | null;
+  }[];
+  /** Counts of 5-min buckets in the last 30 days where a leg's voltage left
+   *  the ±5% band (per-leg dips/spikes, mutually countable). */
+  dips30d: number;
+  spikes30d: number;
+  /** Most recent out-of-band buckets, newest first (max 20). */
+  recent: {
+    t: number;
+    leg: number;
+    kind: 'dip' | 'spike';
+    volts: number; // the offending v_min (dip) or v_max (spike)
+  }[];
+}
+
 /** GET /api/summary */
 export interface SummaryResponse {
   todayKwh: number;
