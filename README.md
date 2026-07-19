@@ -95,6 +95,12 @@ pnpm monorepo, TypeScript throughout:
 - `packages/web` — React + Vite + Tailwind + uPlot.
 - `packages/shared` — the DTO contract between them.
 
+## API
+
+Everything the UI shows is available over a plain HTTP API (plus a live
+WebSocket, MQTT topics, and Prometheus metrics) — see
+[docs/API.md](docs/API.md).
+
 ## Configuration
 
 | Env var | Default | Purpose |
