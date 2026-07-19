@@ -1,6 +1,14 @@
 import type { EventEmitter } from 'node:events';
-import type { AlertSettings, AppStatus, BackfillStatus, CollectorStatus, Settings } from '@sense/shared';
+import type {
+  AlertSettings,
+  AppStatus,
+  BackfillStatus,
+  BillingSettings,
+  CollectorStatus,
+  Settings,
+} from '@sense/shared';
 import { DEFAULT_ALERT_SETTINGS } from '@sense/shared';
+import type { CostEngine } from './lib/costs.js';
 import type { Config } from './config.js';
 import type { AppEvent } from './alerts/events.js';
 import { EVENT_NAME } from './alerts/events.js';
@@ -26,6 +34,8 @@ export interface AppContext {
   getActiveStall: () => AppStatus['activeStall'];
   /** In-process app event bus (see alerts/events.ts). */
   events: EventEmitter;
+  /** Rate-aware cost calculations (lib/costs.ts); assigned in index.ts. */
+  costs: CostEngine;
   log: (msg: string) => void;
 }
 
@@ -69,4 +79,20 @@ export function saveSettings(ctx: Pick<AppContext, 'kv'>, settings: Settings): v
 
 export function kwhToCost(kwh: number, settings: Settings): number {
   return (kwh * settings.rateCentsPerKwh) / 100;
+}
+
+const BILLING_KEY = 'settings.billing';
+
+/** Billing settings; defaults to a flat plan mirroring the legacy simple rate. */
+export function getBillingSettings(ctx: Pick<AppContext, 'kv' | 'config'>): BillingSettings {
+  const stored = ctx.kv.getJson<BillingSettings>(BILLING_KEY);
+  if (stored) return stored;
+  return {
+    ratePlan: { type: 'flat', cents: getSettings(ctx).rateCentsPerKwh },
+    billingCycleDay: 1,
+  };
+}
+
+export function saveBillingSettings(ctx: Pick<AppContext, 'kv'>, settings: BillingSettings): void {
+  ctx.kv.setJson(BILLING_KEY, settings);
 }

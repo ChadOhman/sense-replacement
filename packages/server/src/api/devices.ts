@@ -6,7 +6,7 @@ import type {
   DeviceListItem,
   DevicesResponse,
 } from '@sense/shared';
-import { getSettings, kwhToCost, type AppContext } from '../context.js';
+import type { AppContext } from '../context.js';
 import { addDays, monthOf, todayLocal } from '../lib/time.js';
 
 interface DeviceRow {
@@ -67,7 +67,6 @@ export function registerDeviceRoutes(app: FastifyInstance, ctx: AppContext): voi
     const tz = ctx.sense.monitorTz ?? ctx.config.tz;
     const today = todayLocal(tz);
     const month = monthOf(today);
-    const settings = getSettings(ctx);
     const liveById = new Map((ctx.ring.latest()?.devices ?? []).map((d) => [d.id, d.w]));
     const rows = allDevicesStmt.all() as DeviceRow[];
     const devices: DeviceListItem[] = rows.map((r) => {
@@ -78,7 +77,7 @@ export function registerDeviceRoutes(app: FastifyInstance, ctx: AppContext): voi
         nowW: liveById.get(r.id) ?? null,
         todayKwh,
         monthKwh,
-        monthCost: kwhToCost(monthKwh, settings),
+        monthCost: ctx.costs.costForKwhOnDay(monthKwh, today),
       };
     });
     devices.sort((a, b) => (b.nowW ?? -1) - (a.nowW ?? -1) || a.name.localeCompare(b.name));
@@ -90,7 +89,6 @@ export function registerDeviceRoutes(app: FastifyInstance, ctx: AppContext): voi
     if (!row) return reply.status(404).send({ error: 'unknown device' });
     const tz = ctx.sense.monitorTz ?? ctx.config.tz;
     const today = todayLocal(tz);
-    const settings = getSettings(ctx);
 
     const dailyRows = dailyStmt.all(row.id, addDays(today, -30)) as { day: string; kwh: number }[];
     const dailyByDay = new Map(dailyRows.map((r) => [r.day, r.kwh]));
@@ -98,11 +96,11 @@ export function registerDeviceRoutes(app: FastifyInstance, ctx: AppContext): voi
     for (let i = 29; i >= 0; i--) {
       const day = addDays(today, -i);
       const kwh = dailyByDay.get(day) ?? 0;
-      daily.push({ day, kwh, cost: kwhToCost(kwh, settings) });
+      daily.push({ day, kwh, cost: ctx.costs.costForKwhOnDay(kwh, day) });
     }
 
     const monthly = (monthlyStmt.all(row.id, addDays(today, -365)) as { month: string; kwh: number }[]).map(
-      (r) => ({ month: r.month, kwh: r.kwh, cost: kwhToCost(r.kwh, settings) }),
+      (r) => ({ month: r.month, kwh: r.kwh, cost: ctx.costs.costForKwhOnDay(r.kwh, `${r.month}-15`) }),
     );
 
     const events = eventsStmt.all(row.id) as DeviceEvent[];

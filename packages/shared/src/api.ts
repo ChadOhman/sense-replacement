@@ -1,5 +1,6 @@
 import type {
   AppStatus,
+  BillingSettings,
   Device,
   DeviceEvent,
   DeviceUsage,
@@ -30,7 +31,7 @@ export interface PowerHistoryResponse {
 
 export type UsageScale = 'day' | 'week' | 'month' | 'year';
 
-/** GET /api/history/usage?scale=&start= */
+/** GET /api/history/usage?scale=&start=&compare=1 */
 export interface UsageResponse {
   scale: UsageScale;
   buckets: UsageBucket[];
@@ -38,7 +39,25 @@ export interface UsageResponse {
   totalCost: number;
   /** Per-device breakdown over the same range (top devices + 'other'). */
   devices: DeviceUsage[];
+  /** Same buckets one year earlier (only when compare=1 was requested). */
+  compare?: UsageBucket[];
 }
+
+/** GET /api/billing */
+export interface BillingResponse {
+  cycleStartDay: string; // YYYY-MM-DD local
+  cycleEndDay: string; // exclusive
+  dayOfCycle: number; // 1-based
+  daysInCycle: number;
+  toDateKwh: number;
+  toDateCost: number;
+  forecastCost: number | null; // null with insufficient history
+  lastCycleCost: number | null;
+  currency: string;
+}
+
+/** GET/PUT /api/billing/settings */
+export type BillingSettingsResponse = BillingSettings;
 
 /** GET /api/devices */
 export interface DeviceListItem extends Device {

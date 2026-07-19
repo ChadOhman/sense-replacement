@@ -7,10 +7,12 @@ interface Props {
   currency: string;
   labelFormatter?: (label: string) => string;
   height?: number;
+  /** Optional comparison series (e.g. last year), aligned by index. */
+  compare?: UsageBucket[];
 }
 
 /** Hand-rolled SVG bar chart: rounded-top bars, hover tooltip, keyboard focus. */
-export function UsageBarChart({ buckets, currency, labelFormatter, height = 240 }: Props) {
+export function UsageBarChart({ buckets, currency, labelFormatter, height = 240, compare }: Props) {
   const [hover, setHover] = useState<number | null>(null);
   if (buckets.length === 0) {
     return (
@@ -19,7 +21,11 @@ export function UsageBarChart({ buckets, currency, labelFormatter, height = 240 
       </div>
     );
   }
-  const max = Math.max(...buckets.map((b) => b.kwh), 0.001);
+  const max = Math.max(
+    ...buckets.map((b) => b.kwh),
+    ...(compare ?? []).map((b) => b.kwh),
+    0.001,
+  );
   const chartH = height - 28; // room for labels
   const fmt = labelFormatter ?? ((l: string) => l);
   const labelEvery = Math.ceil(buckets.length / 10);
@@ -46,6 +52,21 @@ export function UsageBarChart({ buckets, currency, labelFormatter, height = 240 
             vectorEffect="non-scaling-stroke"
           />
         ))}
+        {compare?.map((b, i) => {
+          if (i >= buckets.length) return null;
+          const h = Math.max((b.kwh / max) * chartH, b.kwh > 0 ? 1 : 0);
+          return (
+            <rect
+              key={`c-${i}`}
+              x={i * 10 + 6.5}
+              y={chartH - h}
+              width={3}
+              height={h}
+              rx={0.5}
+              fill="var(--axis)"
+            />
+          );
+        })}
         {buckets.map((b, i) => {
           const h = Math.max((b.kwh / max) * chartH, b.kwh > 0 ? 2 : 0);
           return (
@@ -53,7 +74,7 @@ export function UsageBarChart({ buckets, currency, labelFormatter, height = 240 
               key={b.label}
               x={i * 10 + 1}
               y={chartH - h}
-              width={8}
+              width={compare ? 5 : 8}
               height={h}
               rx={1}
               fill={hover === i ? 'var(--series-2)' : 'var(--series-1)'}
@@ -87,6 +108,11 @@ export function UsageBarChart({ buckets, currency, labelFormatter, height = 240 
           <div>
             {formatKwh(buckets[hover].kwh)} · {formatCurrency(buckets[hover].cost, currency)}
           </div>
+          {compare?.[hover] && (
+            <div style={{ color: 'var(--text-muted)' }}>
+              last year: {formatKwh(compare[hover].kwh)}
+            </div>
+          )}
         </div>
       )}
     </div>

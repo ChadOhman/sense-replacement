@@ -8,7 +8,7 @@ import type {
   UsageResponse,
   UsageScale,
 } from '@sense/shared';
-import { getSettings, kwhToCost, type AppContext } from '../context.js';
+import type { AppContext } from '../context.js';
 import { addDays, todayLocal } from '../lib/time.js';
 import { pickResolution } from '../collector/rollup.js';
 
@@ -23,6 +23,7 @@ const usageQuerySchema = z.object({
     .string()
     .regex(/^\d{4}-\d{2}-\d{2}$/)
     .optional(),
+  compare: z.coerce.number().int().min(0).max(1).default(0),
 });
 
 export function registerHistoryRoutes(app: FastifyInstance, ctx: AppContext): void {
@@ -60,6 +61,25 @@ export function registerHistoryRoutes(app: FastifyInstance, ctx: AppContext): vo
     }
   };
 
+  /** Per-day rows grouped into labelled buckets with rate-aware costs. */
+  const bucketsForRange = (scale: UsageScale, startDay: string, end: string): UsageBucket[] => {
+    const bucketExpr = bucketExprFor(scale);
+    const rows = ctx.db
+      .prepare(
+        `SELECT ${bucketExpr} AS label, day, kwh FROM daily_summary
+         WHERE day > ? AND day <= ? ORDER BY day`,
+      )
+      .all(startDay, end) as { label: string; day: string; kwh: number }[];
+    const byLabel = new Map<string, UsageBucket>();
+    for (const r of rows) {
+      const b = byLabel.get(r.label) ?? { label: r.label, kwh: 0, cost: 0 };
+      b.kwh += r.kwh;
+      b.cost += ctx.costs.costForDay(r.day);
+      byLabel.set(r.label, b);
+    }
+    return [...byLabel.values()].sort((a, z) => a.label.localeCompare(z.label));
+  };
+
   app.get('/history/usage', async (req, reply): Promise<UsageResponse | void> => {
     const parsed = usageQuerySchema.safeParse(req.query);
     if (!parsed.success) return reply.status(400).send({ error: parsed.error.message });
@@ -67,21 +87,9 @@ export function registerHistoryRoutes(app: FastifyInstance, ctx: AppContext): vo
     const tz = ctx.sense.monitorTz ?? ctx.config.tz;
     const end = parsed.data.start ?? todayLocal(tz);
     const startDay = addDays(end, -rangeDaysFor(scale));
-    const settings = getSettings(ctx);
 
-    const bucketExpr = bucketExprFor(scale);
-    const rows = ctx.db
-      .prepare(
-        `SELECT ${bucketExpr} AS label, SUM(kwh) AS kwh FROM daily_summary
-         WHERE day > ? AND day <= ? GROUP BY label ORDER BY label`,
-      )
-      .all(startDay, end) as { label: string; kwh: number }[];
-    const buckets: UsageBucket[] = rows.map((r) => ({
-      label: r.label,
-      kwh: r.kwh,
-      cost: kwhToCost(r.kwh, settings),
-    }));
-    const totalKwh = rows.reduce((s, r) => s + r.kwh, 0);
+    const buckets = bucketsForRange(scale, startDay, end);
+    const totalKwh = buckets.reduce((s, b) => s + b.kwh, 0);
 
     const deviceRows = ctx.db
       .prepare(
@@ -98,7 +106,7 @@ export function registerHistoryRoutes(app: FastifyInstance, ctx: AppContext): vo
       name: d.name,
       icon: d.icon,
       kwh: d.kwh,
-      cost: kwhToCost(d.kwh, settings),
+      cost: ctx.costs.costForKwhOnDay(d.kwh, end),
     }));
     if (rest.length > 0) {
       const otherKwh = rest.reduce((s, d) => s + d.kwh, 0);
@@ -107,10 +115,15 @@ export function registerHistoryRoutes(app: FastifyInstance, ctx: AppContext): vo
         name: 'Other devices',
         icon: null,
         kwh: otherKwh,
-        cost: kwhToCost(otherKwh, settings),
+        cost: ctx.costs.costForKwhOnDay(otherKwh, end),
       });
     }
 
-    return { scale, buckets, totalKwh, totalCost: kwhToCost(totalKwh, settings), devices };
+    const totalCost = buckets.reduce((s, b) => s + b.cost, 0);
+    const response: UsageResponse = { scale, buckets, totalKwh, totalCost, devices };
+    if (parsed.data.compare === 1) {
+      response.compare = bucketsForRange(scale, addDays(startDay, -365), addDays(end, -365));
+    }
+    return response;
   });
 }

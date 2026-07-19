@@ -1,6 +1,6 @@
 import type { FastifyInstance } from 'fastify';
 import type { SummaryResponse } from '@sense/shared';
-import { getSettings, kwhToCost, type AppContext } from '../context.js';
+import type { AppContext } from '../context.js';
 import { addDays, monthOf, todayLocal } from '../lib/time.js';
 
 export function registerSummaryRoutes(app: FastifyInstance, ctx: AppContext): void {
@@ -20,7 +20,6 @@ export function registerSummaryRoutes(app: FastifyInstance, ctx: AppContext): vo
   app.get('/summary', async (): Promise<SummaryResponse> => {
     const tz = ctx.sense.monitorTz ?? ctx.config.tz;
     const today = todayLocal(tz);
-    const settings = getSettings(ctx);
     const now = Math.floor(Date.now() / 1000);
 
     const todayKwh = (kwhForDayStmt.get(today) as { kwh: number }).kwh;
@@ -32,13 +31,20 @@ export function registerSummaryRoutes(app: FastifyInstance, ctx: AppContext): vo
       alwaysOnW = (alwaysOnStmt.get(300, now - 86400) as { w: number | null }).w;
     }
 
+    let weekCost = 0;
+    for (let i = 0; i < 7; i++) weekCost += ctx.costs.costForDay(addDays(today, -i));
+    let monthCost = 0;
+    for (let d = `${monthOf(today)}-01`; d <= today; d = addDays(d, 1)) {
+      monthCost += ctx.costs.costForDay(d);
+    }
+
     return {
       todayKwh,
-      todayCost: kwhToCost(todayKwh, settings),
+      todayCost: ctx.costs.costForDay(today),
       weekKwh,
-      weekCost: kwhToCost(weekKwh, settings),
+      weekCost,
       monthKwh,
-      monthCost: kwhToCost(monthKwh, settings),
+      monthCost,
       alwaysOnW,
       nowW: ctx.ring.latest()?.w ?? null,
     };

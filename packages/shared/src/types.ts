@@ -162,6 +162,30 @@ export interface Settings {
   currency: string;
 }
 
+/** One time-of-use pricing window. Hours are local, [startHour, endHour)
+ *  with wraparound (e.g. 21→7). weekdays: 0=Sunday…6=Saturday. months:
+ *  1–12, omitted = all year. */
+export interface TouPeriod {
+  name: string;
+  months?: number[];
+  weekdays: number[];
+  startHour: number;
+  endHour: number;
+  cents: number;
+}
+
+/** Electricity pricing. TOU periods are checked in order; the first match
+ *  wins, defaultCents covers unmatched hours. */
+export type RatePlan =
+  | { type: 'flat'; cents: number }
+  | { type: 'tou'; periods: TouPeriod[]; defaultCents: number };
+
+export interface BillingSettings {
+  ratePlan: RatePlan;
+  /** Day of month (1–28) the utility billing cycle starts. */
+  billingCycleDay: number;
+}
+
 /** Coarse alert categories the user can toggle. */
 export type AlertKind =
   | 'brownout'

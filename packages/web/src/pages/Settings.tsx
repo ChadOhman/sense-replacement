@@ -1,39 +1,16 @@
-import { useEffect, useState } from 'react';
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import type { SettingsResponse, StatusResponse } from '@sense/shared';
-import { get, put } from '../api/client.js';
+import { useQuery } from '@tanstack/react-query';
+import type { StatusResponse } from '@sense/shared';
+import { get } from '../api/client.js';
 import { PageHeader } from '../components/PageHeader.js';
 import { AlertSettingsCard } from '../components/AlertSettingsCard.js';
+import { RatePlanCard } from '../components/RatePlanCard.js';
 import { formatBytes, formatRelativeTime } from '../lib/format.js';
 
 export function Settings() {
-  const qc = useQueryClient();
-  const settings = useQuery({
-    queryKey: ['settings'],
-    queryFn: () => get<SettingsResponse>('/api/settings'),
-  });
   const status = useQuery({
     queryKey: ['status'],
     queryFn: () => get<StatusResponse>('/api/status'),
     refetchInterval: 5000,
-  });
-
-  const [rate, setRate] = useState('');
-  const [currency, setCurrency] = useState('');
-  useEffect(() => {
-    if (settings.data) {
-      setRate(String(settings.data.rateCentsPerKwh));
-      setCurrency(settings.data.currency);
-    }
-  }, [settings.data]);
-
-  const save = useMutation({
-    mutationFn: () =>
-      put<SettingsResponse>('/api/settings', {
-        rateCentsPerKwh: Number(rate),
-        currency: currency.toUpperCase(),
-      }),
-    onSuccess: () => void qc.invalidateQueries({ queryKey: ['settings'] }),
   });
 
   const backfill = status.data?.backfill;
@@ -42,51 +19,7 @@ export function Settings() {
     <div className="space-y-6">
       <PageHeader title="Settings" />
 
-      <div className="card space-y-4 p-4">
-        <div className="text-sm font-medium" style={{ color: 'var(--text-secondary)' }}>
-          Electricity cost
-        </div>
-        <div className="flex flex-wrap items-end gap-3">
-          <label className="text-sm">
-            <div className="mb-1" style={{ color: 'var(--text-muted)' }}>
-              Rate (¢/kWh)
-            </div>
-            <input
-              type="number"
-              min="0"
-              step="0.1"
-              value={rate}
-              onChange={(e) => setRate(e.target.value)}
-              className="w-28 rounded-md border bg-transparent px-2 py-1.5 tabular-nums"
-              style={{ borderColor: 'var(--border)' }}
-            />
-          </label>
-          <label className="text-sm">
-            <div className="mb-1" style={{ color: 'var(--text-muted)' }}>
-              Currency
-            </div>
-            <input
-              value={currency}
-              onChange={(e) => setCurrency(e.target.value)}
-              maxLength={8}
-              className="w-24 rounded-md border bg-transparent px-2 py-1.5 uppercase"
-              style={{ borderColor: 'var(--border)' }}
-            />
-          </label>
-          <button
-            onClick={() => save.mutate()}
-            disabled={save.isPending || !rate || !currency}
-            className="rounded-md px-4 py-1.5 text-sm font-medium disabled:opacity-50"
-            style={{ background: 'var(--series-1)', color: '#fff' }}
-          >
-            {save.isPending ? 'Saving…' : 'Save'}
-          </button>
-          {save.isSuccess && <span style={{ color: 'var(--status-good)' }}>Saved ✓</span>}
-          {save.isError && (
-            <span style={{ color: 'var(--status-critical)' }}>{(save.error as Error).message}</span>
-          )}
-        </div>
-      </div>
+      <RatePlanCard />
 
       <AlertSettingsCard />
 

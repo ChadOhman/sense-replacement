@@ -15,6 +15,7 @@ import { getBackfillStatus, startCollectors } from './collector/index.js';
 import { registerRoutes } from './api/routes.js';
 import { Notifier } from './alerts/notifier.js';
 import { MqttPublisher } from './alerts/mqtt.js';
+import { CostEngine } from './lib/costs.js';
 import type { AppContext } from './context.js';
 
 const log = (msg: string): void => {
@@ -47,8 +48,10 @@ const ctx: AppContext = {
   getActiveNeutralEpisode: () => null,
   getActiveStall: () => null,
   events: new EventEmitter(),
+  costs: undefined as unknown as AppContext['costs'], // assigned just below
   log,
 };
+ctx.costs = new CostEngine(ctx);
 
 const notifier = new Notifier(ctx);
 notifier.start();

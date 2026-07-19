@@ -3,6 +3,7 @@ import { useQuery } from '@tanstack/react-query';
 import type { PowerHistoryResponse, SettingsResponse, UsageResponse, UsageScale } from '@sense/shared';
 import { get } from '../api/client.js';
 import { PageHeader } from '../components/PageHeader.js';
+import { BillingCard } from '../components/BillingCard.js';
 import { StatCard } from '../components/StatCard.js';
 import { UsageBarChart } from '../components/charts/UsageBarChart.js';
 import { UPlotChart } from '../components/charts/UPlotChart.js';
@@ -15,9 +16,11 @@ const SCALES: UsageScale[] = ['day', 'week', 'month', 'year'];
 
 export function Trends() {
   const [scale, setScale] = useState<UsageScale>('day');
+  const [compare, setCompare] = useState(false);
   const usage = useQuery({
-    queryKey: ['usage', scale],
-    queryFn: () => get<UsageResponse>(`/api/history/usage?scale=${scale}`),
+    queryKey: ['usage', scale, compare],
+    queryFn: () =>
+      get<UsageResponse>(`/api/history/usage?scale=${scale}${compare ? '&compare=1' : ''}`),
   });
   const settings = useQuery({
     queryKey: ['settings'],
@@ -70,6 +73,8 @@ export function Trends() {
         }
       />
 
+      <BillingCard />
+
       <div className="grid grid-cols-2 gap-3">
         <StatCard label="Total usage" value={formatKwh(usage.data?.totalKwh)} />
         <StatCard label="Estimated cost" value={formatCurrency(usage.data?.totalCost, currency)} />
@@ -91,14 +96,27 @@ export function Trends() {
       )}
 
       <div className="card p-4">
-        <div className="mb-2 text-sm font-medium" style={{ color: 'var(--text-secondary)' }}>
-          Usage by {scale}
+        <div className="mb-2 flex items-center justify-between">
+          <div className="text-sm font-medium" style={{ color: 'var(--text-secondary)' }}>
+            Usage by {scale}
+          </div>
+          <button
+            onClick={() => setCompare(!compare)}
+            className="rounded-full px-3 py-0.5 text-xs transition-colors"
+            style={{
+              background: compare ? 'var(--series-1)' : 'var(--surface-2)',
+              color: compare ? '#fff' : 'var(--text-muted)',
+            }}
+          >
+            vs last year
+          </button>
         </div>
         {usage.isLoading ? (
           <SkeletonRows rows={3} />
         ) : (
           <UsageBarChart
             buckets={usage.data?.buckets ?? []}
+            compare={compare ? (usage.data?.compare ?? []) : undefined}
             currency={currency}
             labelFormatter={scale === 'day' || scale === 'week' ? formatDayLabel : undefined}
           />
