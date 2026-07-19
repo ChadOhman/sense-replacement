@@ -110,6 +110,17 @@ export function Settings() {
           </tbody>
         </table>
       </div>
+
+      <div className="pb-2 text-center text-sm">
+        <a
+          href="https://buymeacoffee.com/chadohman"
+          target="_blank"
+          rel="noreferrer"
+          style={{ color: 'var(--text-muted)' }}
+        >
+          Enjoying this? <span style={{ color: 'var(--series-3)' }}>☕ Buy me a coffee</span>
+        </a>
+      </div>
     </div>
   );
 }

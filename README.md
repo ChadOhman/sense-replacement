@@ -5,6 +5,9 @@ selling home monitors at the end of 2025 and no longer maintains the web app;
 this project keeps your monitor useful — and, crucially, **archives your energy
 data locally** so your history survives even if Sense's cloud goes dark.
 
+If this project keeps your monitor alive, you can
+[☕ buy me a coffee](https://buymeacoffee.com/chadohman).
+
 ## What it does
 
 - **Live power meter** — streaming wattage graph from your monitor's realtime
