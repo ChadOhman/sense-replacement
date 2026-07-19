@@ -6,6 +6,7 @@ import { getBackfillStatus, registerBackfillJob } from './backfill.js';
 import { registerDeviceSyncJob } from './devices.js';
 import { registerTimelineJob } from './timeline.js';
 import { registerRetentionJob } from './retention.js';
+import { registerHealthJobs } from './health.js';
 
 export { getBackfillStatus };
 
@@ -23,6 +24,7 @@ export function startCollectors(ctx: AppContext): {
   registerBackfillJob(ctx, scheduler);
   registerTimelineJob(ctx, scheduler);
   registerRetentionJob(ctx, scheduler);
+  registerHealthJobs(ctx, scheduler);
 
   realtimeCollector.start();
   ctx.getActiveBrownout = () => realtimeCollector.activeBrownout;

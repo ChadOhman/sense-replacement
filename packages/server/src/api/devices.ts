@@ -8,6 +8,7 @@ import type {
 } from '@sense/shared';
 import type { AppContext } from '../context.js';
 import { addDays, monthOf, todayLocal } from '../lib/time.js';
+import { getStoredAnomalies } from '../collector/health.js';
 
 interface DeviceRow {
   id: string;
@@ -68,6 +69,7 @@ export function registerDeviceRoutes(app: FastifyInstance, ctx: AppContext): voi
     const today = todayLocal(tz);
     const month = monthOf(today);
     const liveById = new Map((ctx.ring.latest()?.devices ?? []).map((d) => [d.id, d.w]));
+    const anomalies = getStoredAnomalies(ctx);
     const rows = allDevicesStmt.all() as DeviceRow[];
     const devices: DeviceListItem[] = rows.map((r) => {
       const todayKwh = (dayKwhStmt.get(r.id, today) as { kwh: number }).kwh;
@@ -78,6 +80,7 @@ export function registerDeviceRoutes(app: FastifyInstance, ctx: AppContext): voi
         todayKwh,
         monthKwh,
         monthCost: ctx.costs.costForKwhOnDay(monthKwh, today),
+        anomaly: anomalies[r.id] ?? null,
       };
     });
     devices.sort((a, b) => (b.nowW ?? -1) - (a.nowW ?? -1) || a.name.localeCompare(b.name));

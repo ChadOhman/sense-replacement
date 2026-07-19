@@ -103,6 +103,21 @@ export interface DeviceUsage {
   cost: number;
 }
 
+/** A flagged deviation of a device's recent usage from its baseline. */
+export interface DeviceAnomalyInfo {
+  pct: number; // signed fraction, +0.35 = 35% above baseline
+  direction: 'up' | 'down';
+  recentKwhPerDay: number;
+  baselineKwhPerDay: number;
+}
+
+/** A gap in the power archive (power outage or collector downtime). */
+export interface Outage {
+  id: number;
+  startedTs: number;
+  endedTs: number;
+}
+
 export interface DeviceEvent {
   id: number;
   deviceId: string;

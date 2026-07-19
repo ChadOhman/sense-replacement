@@ -89,6 +89,22 @@ export function Devices() {
                         (removed)
                       </span>
                     )}
+                    {d.anomaly && (
+                      <span
+                        className="ml-2 rounded-full px-2 py-0.5 text-xs font-medium tabular-nums"
+                        title={`7-day avg ${d.anomaly.recentKwhPerDay.toFixed(1)} kWh/day vs 90-day baseline ${d.anomaly.baselineKwhPerDay.toFixed(1)}`}
+                        style={{
+                          background: 'var(--surface-2)',
+                          color:
+                            d.anomaly.direction === 'up'
+                              ? 'var(--status-warning)'
+                              : 'var(--series-2)',
+                        }}
+                      >
+                        {d.anomaly.direction === 'up' ? '↑' : '↓'}
+                        {Math.round(Math.abs(d.anomaly.pct) * 100)}%
+                      </span>
+                    )}
                   </td>
                   <td className="px-4 py-3 text-right tabular-nums" style={{ color: d.nowW ? 'var(--series-3)' : undefined }}>
                     {formatWatts(d.nowW)}

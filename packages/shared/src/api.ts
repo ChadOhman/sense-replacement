@@ -2,6 +2,7 @@ import type {
   AppStatus,
   BillingSettings,
   Device,
+  DeviceAnomalyInfo,
   DeviceEvent,
   DeviceUsage,
   LiveFrame,
@@ -9,6 +10,7 @@ import type {
   Settings,
   NeutralEvent,
   NeutralHealth,
+  Outage,
   StallEvent,
   UsageBucket,
   VoltageEvent,
@@ -65,6 +67,8 @@ export interface DeviceListItem extends Device {
   todayKwh: number;
   monthKwh: number;
   monthCost: number;
+  /** Set when recent usage deviates significantly from the 90-day baseline. */
+  anomaly: DeviceAnomalyInfo | null;
 }
 export interface DevicesResponse {
   devices: DeviceListItem[];
@@ -151,6 +155,13 @@ export interface SummaryResponse {
   monthCost: number;
   alwaysOnW: number | null;
   nowW: number | null;
+  /** Set when the always-on floor has crept above its 90-day baseline. */
+  alwaysOnCreep: { currentW: number; baselineW: number; pct: number } | null;
+}
+
+/** GET /api/outages?from=&to= */
+export interface OutagesResponse {
+  outages: Outage[]; // newest first
 }
 
 /** GET/PUT /api/settings */

@@ -130,7 +130,18 @@ export function Live() {
         <StatCard label="Today" value={formatKwh(summary.data?.todayKwh)} />
         <StatCard label="This week" value={formatKwh(summary.data?.weekKwh)} />
         <StatCard label="This month" value={formatKwh(summary.data?.monthKwh)} />
-        <StatCard label="Always on" value={formatWatts(summary.data?.alwaysOnW)} />
+        <StatCard
+          label="Always on"
+          value={formatWatts(summary.data?.alwaysOnW)}
+          sub={
+            summary.data?.alwaysOnCreep ? (
+              <span style={{ color: 'var(--status-warning)' }}>
+                ↑{Math.round(summary.data.alwaysOnCreep.pct * 100)}% vs baseline{' '}
+                {formatWatts(summary.data.alwaysOnCreep.baselineW)}
+              </span>
+            ) : undefined
+          }
+        />
       </div>
 
       <div>

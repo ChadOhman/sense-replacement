@@ -3,6 +3,7 @@ import { useQuery } from '@tanstack/react-query';
 import type uPlot from 'uplot';
 import type {
   NeutralEventsResponse,
+  OutagesResponse,
   StallEventsResponse,
   VoltageEventsResponse,
   VoltageHistoryResponse,
@@ -144,6 +145,11 @@ export function PowerQuality() {
     queryKey: ['stall-events'],
     queryFn: () => get<StallEventsResponse>('/api/stall-events'),
     refetchInterval: 30_000,
+  });
+  const outages = useQuery({
+    queryKey: ['outages'],
+    queryFn: () => get<OutagesResponse>('/api/outages'),
+    refetchInterval: 5 * 60_000,
   });
   const neutralEvents = useQuery({
     queryKey: ['neutral-events'],
@@ -320,6 +326,41 @@ export function PowerQuality() {
                 ))}
               </ul>
             )}
+          </>
+        )}
+      </div>
+
+      <div className="card p-4">
+        <div className="mb-2 text-sm font-medium" style={{ color: 'var(--text-secondary)' }}>
+          Outages & data gaps
+        </div>
+        {(outages.data?.outages.length ?? 0) === 0 ? (
+          <div className="py-2 text-sm" style={{ color: 'var(--status-good)' }}>
+            ✓ No gaps in the power archive in the last 30 days
+          </div>
+        ) : (
+          <>
+            <div className="py-1 text-xs" style={{ color: 'var(--text-muted)' }}>
+              A gap means a power outage — or the collector itself being offline.
+            </div>
+            <ul className="divide-y" style={{ borderColor: 'var(--border)' }}>
+              {outages.data!.outages.slice(0, 10).map((o) => (
+                <li key={o.id} className="flex items-center justify-between py-2 text-sm">
+                  <span>
+                    <span
+                      className="mr-2 inline-block rounded-full px-2 py-0.5 text-xs font-medium"
+                      style={{ background: 'var(--surface-2)', color: 'var(--status-warning)' }}
+                    >
+                      GAP
+                    </span>
+                    {formatDuration(o.endedTs - o.startedTs)}
+                  </span>
+                  <span className="tabular-nums" style={{ color: 'var(--text-muted)' }}>
+                    {formatRelativeTime(o.startedTs)}
+                  </span>
+                </li>
+              ))}
+            </ul>
           </>
         )}
       </div>

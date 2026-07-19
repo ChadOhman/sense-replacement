@@ -16,6 +16,8 @@ const envSchema = z.object({
   MQTT_URL: z.string().default(''),
   MQTT_USERNAME: z.string().default(''),
   MQTT_PASSWORD: z.string().default(''),
+  LAT: z.string().default(''),
+  LON: z.string().default(''),
 });
 
 export type Config = {
@@ -31,6 +33,8 @@ export type Config = {
   mqttUrl: string;
   mqttUsername: string;
   mqttPassword: string;
+  lat: string;
+  lon: string;
 };
 
 export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
@@ -58,5 +62,7 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
     mqttUrl: e.MQTT_URL,
     mqttUsername: e.MQTT_USERNAME,
     mqttPassword: e.MQTT_PASSWORD,
+    lat: e.LAT,
+    lon: e.LON,
   };
 }

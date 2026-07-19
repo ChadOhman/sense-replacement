@@ -2,6 +2,7 @@ import type { FastifyInstance } from 'fastify';
 import type { SummaryResponse } from '@sense/shared';
 import type { AppContext } from '../context.js';
 import { addDays, monthOf, todayLocal } from '../lib/time.js';
+import { getStoredCreep } from '../collector/health.js';
 
 export function registerSummaryRoutes(app: FastifyInstance, ctx: AppContext): void {
   const kwhForDayStmt = ctx.db.prepare(
@@ -47,6 +48,7 @@ export function registerSummaryRoutes(app: FastifyInstance, ctx: AppContext): vo
       monthCost,
       alwaysOnW,
       nowW: ctx.ring.latest()?.w ?? null,
+      alwaysOnCreep: getStoredCreep(ctx),
     };
   });
 }
