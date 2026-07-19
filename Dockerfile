@@ -10,8 +10,9 @@ RUN pnpm install --frozen-lockfile
 COPY tsconfig.base.json ./
 COPY packages ./packages
 RUN pnpm -r build
-# Produce a pruned production install for the server (keeps compiled better-sqlite3)
-RUN pnpm --filter @sense/server deploy --prod /deploy/server
+# Produce a pruned production install for the server (keeps compiled better-sqlite3).
+# --legacy: pnpm 10+ otherwise requires inject-workspace-packages for deploy.
+RUN pnpm --filter @sense/server deploy --legacy --prod /deploy/server
 
 # ---- runtime stage ----
 FROM node:24-alpine

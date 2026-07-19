@@ -3,6 +3,7 @@
   "version": "0.1.0",
   "private": true,
   "type": "module",
+  "packageManager": "pnpm@11.15.0",
   "scripts": {
     "dev": "concurrently -n server,web \"pnpm --filter @sense/server dev\" \"pnpm --filter @sense/web dev\"",
     "build": "pnpm -r build",

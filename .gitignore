@@ -5,3 +5,6 @@ data/
 *.log
 .DS_Store
 coverage/
+
+# Local deployment details (home-network specifics stay out of the repo)
+scripts/deploy.sh
