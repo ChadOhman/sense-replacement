@@ -71,6 +71,12 @@ export const senseTrendsSchema = z
       })
       .passthrough()
       .optional(),
+    production: z
+      .object({
+        total: z.number().default(0), // solar kWh for the period
+      })
+      .passthrough()
+      .optional(),
   })
   .passthrough();
 export type SenseTrends = z.infer<typeof senseTrendsSchema>;
@@ -99,6 +105,7 @@ export type SenseTimeline = z.infer<typeof senseTimelineSchema>;
 export const senseRealtimePayloadSchema = z
   .object({
     w: z.number(),
+    solar_w: z.number().optional(),
     hz: z.number().optional(),
     voltage: z.array(z.number()).optional(),
     devices: z

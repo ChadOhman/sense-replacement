@@ -11,14 +11,17 @@ interface Props {
 export function UPlotChart({ data, options, height = 260 }: Props) {
   const containerRef = useRef<HTMLDivElement>(null);
   const chartRef = useRef<uPlot | null>(null);
-  const optionsRef = useRef(options);
+  const dataRef = useRef(data);
+  dataRef.current = data;
 
+  // Recreated when options identity changes (callers memoize options, so this
+  // fires only on real config changes like a series appearing).
   useEffect(() => {
     const el = containerRef.current;
     if (!el) return;
     const chart = new uPlot(
-      { ...optionsRef.current, width: el.clientWidth || 600, height },
-      data,
+      { ...options, width: el.clientWidth || 600, height },
+      dataRef.current,
       el,
     );
     chartRef.current = chart;
@@ -31,7 +34,7 @@ export function UPlotChart({ data, options, height = 260 }: Props) {
       chart.destroy();
       chartRef.current = null;
     };
-  }, [height]);
+  }, [height, options]);
 
   useEffect(() => {
     chartRef.current?.setData(data);

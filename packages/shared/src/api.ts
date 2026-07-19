@@ -44,6 +44,8 @@ export interface UsageResponse {
   devices: DeviceUsage[];
   /** Same buckets one year earlier (only when compare=1 was requested). */
   compare?: UsageBucket[];
+  /** Total solar production over the range (kWh); absent on non-solar homes. */
+  totalProductionKwh?: number;
 }
 
 /** GET /api/billing */
@@ -160,6 +162,8 @@ export interface SummaryResponse {
   nowW: number | null;
   /** Set when the always-on floor has crept above its 90-day baseline. */
   alwaysOnCreep: { currentW: number; baselineW: number; pct: number } | null;
+  /** Solar production today (kWh); null on non-solar monitors. */
+  solarTodayKwh: number | null;
 }
 
 /** GET /api/outages?from=&to= */

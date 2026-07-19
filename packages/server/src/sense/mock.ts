@@ -60,7 +60,15 @@ function deviceWatts(deviceId: string, ts: number): number {
   }
 }
 
-function totalFrame(ts: number): SenseRealtimePayload {
+/** Simulated solar production: daylight bell curve peaking ~4 kW. */
+function solarWatts(ts: number): number {
+  const hour = (ts % 86400) / 3600;
+  if (hour < 6 || hour > 20) return 0;
+  const x = (hour - 13) / 7; // -1..1 across the daylight window
+  return Math.max(0, 4000 * Math.cos((x * Math.PI) / 2) ** 2 + 50 * Math.sin(ts / 30));
+}
+
+function totalFrame(ts: number, solar: boolean): SenseRealtimePayload {
   const devices = MOCK_DEVICES.filter((d) => d.id !== 'unknown')
     .map((d) => ({ id: d.id, name: d.name, icon: d.icon ?? null, w: deviceWatts(d.id, ts) }))
     .filter((d) => d.w > 1);
@@ -89,6 +97,7 @@ function totalFrame(ts: number): SenseRealtimePayload {
   }
   return {
     w,
+    ...(solar ? { solar_w: solarWatts(ts) } : {}),
     hz: 60 + 0.02 * Math.sin(ts / 30),
     voltage: [leg1, leg2],
     devices,
@@ -113,6 +122,7 @@ function dailyKwh(day: string): { total: number; perDevice: Map<string, number> 
 
 class MockRealtime extends EventEmitter {
   private timer: NodeJS.Timeout | null = null;
+  solar = false;
   private frames: { payload: SenseRealtimePayload }[] | null = null;
   private frameIdx = 0;
   private _connected = false;
@@ -143,7 +153,7 @@ class MockRealtime extends EventEmitter {
         payload = this.frames[this.frameIdx % this.frames.length]!.payload;
         this.frameIdx += 1;
       } else {
-        payload = totalFrame(ts);
+        payload = totalFrame(ts, this.solar);
       }
       this.emit('frame', payload, ts);
     }, 1000);
@@ -161,15 +171,18 @@ class MockRealtime extends EventEmitter {
 
 export class SenseMockClient implements SenseClient {
   readonly authState: AuthState = 'ok';
+  private readonly solar: boolean;
   readonly authMessage = null;
   readonly monitorId = 999999;
   readonly monitorTz: string;
   private readonly rt: MockRealtime;
   private devicesFixture: SenseDevice[] | null = null;
 
-  constructor(tz: string, fixturesDir = 'fixtures') {
+  constructor(tz: string, fixturesDir = 'fixtures', solar = false) {
     this.monitorTz = tz;
+    this.solar = solar;
     this.rt = new MockRealtime(fixturesDir);
+    this.rt.solar = solar;
     const devicesPath = join(fixturesDir, 'devices.json');
     if (existsSync(devicesPath)) {
       this.devicesFixture = JSON.parse(readFileSync(devicesPath, 'utf8')) as SenseDevice[];
@@ -202,6 +215,7 @@ export class SenseMockClient implements SenseClient {
     const { total, perDevice } = dailyKwh(day);
     return {
       start: `${day}T00:00:00`,
+      ...(this.solar ? { production: { total: 18 + 10 * prand(Number(day.replaceAll('-', '')) + 9) } } : {}),
       consumption: {
         total,
         devices: [...perDevice.entries()].map(([id, kwh]) => {

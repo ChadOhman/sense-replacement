@@ -6,6 +6,7 @@ function frame(ts: number, w: number, devices: { id: string; w: number }[] = [],
   return {
     ts,
     w,
+    solarW: null,
     volts,
     voltageLegs: volts !== null ? [volts] : [],
     hz,
@@ -44,6 +45,16 @@ describe('aggregateFrames', () => {
     const agg = aggregateFrames([frame(0, 100, [], 120, null), frame(1, 100, [], null, null)]);
     expect(agg!.volts).toBe(120);
     expect(agg!.hz).toBeNull();
+  });
+
+  it('averages solar over reporting frames, null when absent', () => {
+    const noSolar = aggregateFrames([frame(0, 100)]);
+    expect(noSolar!.solarWAvg).toBeNull();
+    const withSolar = aggregateFrames([
+      { ...frame(0, 100), solarW: 3000 },
+      { ...frame(1, 100), solarW: 1000 },
+    ]);
+    expect(withSolar!.solarWAvg).toBe(2000);
   });
 });
 

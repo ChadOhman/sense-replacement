@@ -12,6 +12,10 @@ const envSchema = z.object({
     .string()
     .default('0')
     .transform((v) => v === '1' || v.toLowerCase() === 'true'),
+  MOCK_SOLAR: z
+    .string()
+    .default('0')
+    .transform((v) => v === '1' || v.toLowerCase() === 'true'),
   REALTIME_MODE: z.enum(['persistent', 'duty-cycle']).default('persistent'),
   MQTT_URL: z.string().default(''),
   MQTT_USERNAME: z.string().default(''),
@@ -30,6 +34,7 @@ export type Config = {
   currency: string;
   defaultRateCentsPerKwh: number;
   mock: boolean;
+  mockSolar: boolean;
   realtimeMode: 'persistent' | 'duty-cycle';
   mqttUrl: string;
   mqttUsername: string;
@@ -60,6 +65,7 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
     currency: e.CURRENCY,
     defaultRateCentsPerKwh: e.ELECTRICITY_RATE_CENTS_PER_KWH,
     mock: e.SENSE_MOCK,
+    mockSolar: e.MOCK_SOLAR,
     realtimeMode: e.REALTIME_MODE,
     mqttUrl: e.MQTT_URL,
     mqttUsername: e.MQTT_USERNAME,

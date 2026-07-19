@@ -6,6 +6,8 @@ export interface FrameAggregate {
   wAvg: number;
   wMin: number;
   wMax: number;
+  /** Average solar production over frames reporting it; null without solar. */
+  solarWAvg: number | null;
   volts: number | null;
   hz: number | null;
   sampleCount: number;
@@ -22,6 +24,8 @@ export function aggregateFrames(frames: LiveFrame[]): FrameAggregate | null {
   let voltsN = 0;
   let hzSum = 0;
   let hzN = 0;
+  let solarSum = 0;
+  let solarN = 0;
   const perDeviceSum = new Map<string, number>();
   for (const f of frames) {
     wSum += f.w;
@@ -35,6 +39,10 @@ export function aggregateFrames(frames: LiveFrame[]): FrameAggregate | null {
       hzSum += f.hz;
       hzN++;
     }
+    if (f.solarW !== null) {
+      solarSum += f.solarW;
+      solarN++;
+    }
     for (const d of f.devices) {
       perDeviceSum.set(d.id, (perDeviceSum.get(d.id) ?? 0) + d.w);
     }
@@ -47,6 +55,7 @@ export function aggregateFrames(frames: LiveFrame[]): FrameAggregate | null {
     wAvg: wSum / frames.length,
     wMin,
     wMax,
+    solarWAvg: solarN > 0 ? solarSum / solarN : null,
     volts: voltsN > 0 ? voltsSum / voltsN : null,
     hz: hzN > 0 ? hzSum / hzN : null,
     sampleCount: frames.length,

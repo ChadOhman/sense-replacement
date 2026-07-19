@@ -13,13 +13,14 @@ const RETAIN_300_S = 2 * 365 * 86400;
 function compact(db: Db, from: number, to: number, ageS: number, now: number): void {
   const cutoff = now - ageS;
   db.prepare(
-    `INSERT OR IGNORE INTO power_rollup (resolution, bucket, w_avg, w_min, w_max, volts, hz, sample_count)
+    `INSERT OR IGNORE INTO power_rollup (resolution, bucket, w_avg, w_min, w_max, volts, hz, sample_count, solar_w_avg)
      SELECT ${to}, (bucket / ${to}) * ${to} AS b,
        SUM(w_avg * sample_count) / SUM(sample_count),
        MIN(w_min), MAX(w_max),
        SUM(COALESCE(volts, 0) * sample_count) / NULLIF(SUM(CASE WHEN volts IS NOT NULL THEN sample_count ELSE 0 END), 0),
        SUM(COALESCE(hz, 0) * sample_count) / NULLIF(SUM(CASE WHEN hz IS NOT NULL THEN sample_count ELSE 0 END), 0),
-       SUM(sample_count)
+       SUM(sample_count),
+       SUM(COALESCE(solar_w_avg, 0) * sample_count) / NULLIF(SUM(CASE WHEN solar_w_avg IS NOT NULL THEN sample_count ELSE 0 END), 0)
      FROM power_rollup
      WHERE resolution = ${from} AND bucket < ? AND (bucket / ${to}) * ${to} + ${to} <= ?
      GROUP BY b`,

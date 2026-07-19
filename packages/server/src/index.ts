@@ -27,7 +27,7 @@ const db = openDb(config.dataDir);
 const kv = new KvStore(db);
 
 const sense = config.mock
-  ? new SenseMockClient(config.tz, 'fixtures')
+  ? new SenseMockClient(config.tz, 'fixtures', config.mockSolar)
   : new SenseCloudClient({
       email: config.senseEmail,
       password: config.sensePassword,

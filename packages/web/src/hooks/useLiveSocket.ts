@@ -48,7 +48,7 @@ export function useLiveSocket(): LiveState {
           setSeries((prev) => {
             const cutoff = f.ts - WINDOW_S;
             const next = prev.filter((p) => p.t >= cutoff);
-            next.push({ t: f.ts, wAvg: f.w, wMin: f.w, wMax: f.w });
+            next.push({ t: f.ts, wAvg: f.w, wMin: f.w, wMax: f.w, solarWAvg: f.solarW });
             return next;
           });
         } else if (msg.kind === 'status') {

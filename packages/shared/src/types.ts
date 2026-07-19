@@ -24,7 +24,9 @@ export interface LiveDevice {
 /** One frame of live power data relayed to the browser (~1 Hz). */
 export interface LiveFrame {
   ts: number; // epoch seconds UTC
-  w: number; // total mains watts
+  w: number; // total consumption watts
+  /** Solar production watts; null on monitors without solar CTs. */
+  solarW: number | null;
   volts: number | null; // average across legs
   voltageLegs: number[]; // per-leg RMS voltage (empty if unknown)
   hz: number | null;
@@ -78,6 +80,8 @@ export interface PowerPoint {
   wAvg: number;
   wMin: number;
   wMax: number;
+  /** Average solar production; absent/null on non-solar monitors. */
+  solarWAvg?: number | null;
 }
 
 /** One day of total usage. */
@@ -166,6 +170,8 @@ export interface AppStatus {
   dbSizeBytes: number;
   mock: boolean;
   lastBackup: { ts: number; sizeBytes: number } | null;
+  /** True once the monitor has ever reported solar production. */
+  solar: boolean;
   /** Brownout currently in progress, if any. */
   activeBrownout: {
     startedTs: number;

@@ -42,7 +42,7 @@ export function registerExportRoutes(app: FastifyInstance, ctx: AppContext): voi
      WHERE dd.day >= ? AND dd.day <= ? ORDER BY dd.day, d.name`,
   );
   const powerStmt = ctx.db.prepare(
-    `SELECT bucket, w_avg, w_min, w_max, volts, hz, sample_count FROM power_rollup
+    `SELECT bucket, w_avg, w_min, w_max, volts, hz, sample_count, solar_w_avg FROM power_rollup
      WHERE resolution = ? AND bucket >= ? AND bucket < ? ORDER BY bucket`,
   );
 
@@ -88,6 +88,7 @@ export function registerExportRoutes(app: FastifyInstance, ctx: AppContext): voi
         volts: number | null;
         hz: number | null;
         sample_count: number;
+        solar_w_avg: number | null;
       }[]
     ).map((r) => [
       r.bucket,
@@ -98,11 +99,14 @@ export function registerExportRoutes(app: FastifyInstance, ctx: AppContext): voi
       r.volts?.toFixed(1) ?? '',
       r.hz?.toFixed(2) ?? '',
       r.sample_count,
+      r.solar_w_avg?.toFixed(1) ?? '',
     ]);
     return reply
       .type('text/csv')
       .header('Content-Disposition', `attachment; filename="power-${resolution}s.csv"`)
-      .send(toCsv(['epoch', 'iso_utc', 'w_avg', 'w_min', 'w_max', 'volts', 'hz', 'samples'], rows));
+      .send(
+        toCsv(['epoch', 'iso_utc', 'w_avg', 'w_min', 'w_max', 'volts', 'hz', 'samples', 'solar_w_avg'], rows),
+      );
   });
 
   /** Consistent snapshot of the whole database, streamed as a download. */

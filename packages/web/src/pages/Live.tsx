@@ -101,6 +101,20 @@ export function Live() {
                   stale
                 </span>
               )}
+              {frame.solarW !== null && (
+                <span
+                  className="rounded-full px-2 py-0.5 tabular-nums"
+                  style={{ background: 'var(--surface-2)', color: 'var(--series-4)' }}
+                >
+                  ☀️ {formatWatts(frame.solarW)}
+                  {frame.solarW > 1 && (
+                    <span style={{ color: 'var(--text-muted)' }}>
+                      {' '}
+                      · net {formatWatts(frame.w - frame.solarW)}
+                    </span>
+                  )}
+                </span>
+              )}
               {frame.voltageLegs.length > 0 ? (
                 frame.voltageLegs.map((v, i) => <VoltageChip key={i} volts={v} />)
               ) : (
@@ -130,6 +144,14 @@ export function Live() {
         <StatCard label="Today" value={formatKwh(summary.data?.todayKwh)} />
         <StatCard label="This week" value={formatKwh(summary.data?.weekKwh)} />
         <StatCard label="This month" value={formatKwh(summary.data?.monthKwh)} />
+        {summary.data?.solarTodayKwh !== null && summary.data?.solarTodayKwh !== undefined ? (
+          <StatCard
+            label="Solar today"
+            value={
+              <span style={{ color: 'var(--series-4)' }}>{formatKwh(summary.data.solarTodayKwh)}</span>
+            }
+          />
+        ) : null}
         <StatCard
           label="Always on"
           value={formatWatts(summary.data?.alwaysOnW)}

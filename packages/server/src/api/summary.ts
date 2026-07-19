@@ -49,6 +49,11 @@ export function registerSummaryRoutes(app: FastifyInstance, ctx: AppContext): vo
       alwaysOnW,
       nowW: ctx.ring.latest()?.w ?? null,
       alwaysOnCreep: getStoredCreep(ctx),
+      solarTodayKwh: (
+        ctx.db
+          .prepare('SELECT production_kwh AS kwh FROM daily_summary WHERE day = ?')
+          .get(today) as { kwh: number | null } | undefined
+      )?.kwh ?? null,
     };
   });
 }

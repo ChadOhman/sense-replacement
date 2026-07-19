@@ -57,8 +57,8 @@ export class RealtimeCollector {
     );
     this.touchLastSeenStmt = ctx.db.prepare('UPDATE devices SET last_seen = ? WHERE id = ?');
     this.insertPowerRollupStmt = ctx.db.prepare(
-      `INSERT OR REPLACE INTO power_rollup (resolution, bucket, w_avg, w_min, w_max, volts, hz, sample_count)
-       VALUES (30, ?, ?, ?, ?, ?, ?, ?)`,
+      `INSERT OR REPLACE INTO power_rollup (resolution, bucket, w_avg, w_min, w_max, volts, hz, sample_count, solar_w_avg)
+       VALUES (30, ?, ?, ?, ?, ?, ?, ?, ?)`,
     );
     this.insertDevicePowerRollupStmt = ctx.db.prepare(
       `INSERT OR REPLACE INTO device_power_rollup (resolution, bucket, device_id, w_avg, sample_count)
@@ -127,11 +127,16 @@ export class RealtimeCollector {
     const frame: LiveFrame = {
       ts,
       w: payload.w,
+      solarW: payload.solar_w ?? null,
       volts,
       voltageLegs: payload.voltage ?? [],
       hz: payload.hz ?? null,
       devices,
     };
+    if (payload.solar_w !== undefined && this.ctx.kv.get('solar.detected') === null) {
+      this.ctx.kv.set('solar.detected', '1');
+      this.ctx.log('solar: production data detected on this monitor');
+    }
     this.ctx.ring.push(frame);
     this.ensureDevices(devices, ts);
     this.detectTransitions(devices, ts);
@@ -342,7 +347,7 @@ export class RealtimeCollector {
       if (!agg) return;
       const legAggs = aggregateLegVoltages(frames);
       this.ctx.db.transaction(() => {
-        this.insertPowerRollupStmt.run(bStart, agg.wAvg, agg.wMin, agg.wMax, agg.volts, agg.hz, agg.sampleCount);
+        this.insertPowerRollupStmt.run(bStart, agg.wAvg, agg.wMin, agg.wMax, agg.volts, agg.hz, agg.sampleCount, agg.solarWAvg);
         for (const [deviceId, { wAvg }] of agg.perDevice) {
           if (wAvg <= DEVICE_ROLLUP_MIN_W) continue;
           if (!this.deviceExistsStmt.get(deviceId)) continue;

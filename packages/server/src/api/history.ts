@@ -28,7 +28,7 @@ const usageQuerySchema = z.object({
 
 export function registerHistoryRoutes(app: FastifyInstance, ctx: AppContext): void {
   const powerStmt = ctx.db.prepare(
-    `SELECT bucket AS t, w_avg AS wAvg, w_min AS wMin, w_max AS wMax
+    `SELECT bucket AS t, w_avg AS wAvg, w_min AS wMin, w_max AS wMax, solar_w_avg AS solarWAvg
      FROM power_rollup WHERE resolution = ? AND bucket >= ? AND bucket < ?
      ORDER BY bucket`,
   );
@@ -120,7 +120,13 @@ export function registerHistoryRoutes(app: FastifyInstance, ctx: AppContext): vo
     }
 
     const totalCost = buckets.reduce((s, b) => s + b.cost, 0);
+    const production = ctx.db
+      .prepare(
+        'SELECT SUM(production_kwh) AS kwh FROM daily_summary WHERE day > ? AND day <= ? AND production_kwh IS NOT NULL',
+      )
+      .get(startDay, end) as { kwh: number | null };
     const response: UsageResponse = { scale, buckets, totalKwh, totalCost, devices };
+    if (production.kwh !== null) response.totalProductionKwh = production.kwh;
     if (parsed.data.compare === 1) {
       response.compare = bucketsForRange(scale, addDays(startDay, -365), addDays(end, -365));
     }

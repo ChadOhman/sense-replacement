@@ -4,8 +4,9 @@ import { addDays, localDayStartTs, todayLocal } from '../lib/time.js';
 
 export function registerTrendsJobs(ctx: AppContext, scheduler: Scheduler): void {
   const upsertDailyStmt = ctx.db.prepare(
-    `INSERT INTO daily_summary (day, kwh, source) VALUES (?, ?, ?)
-     ON CONFLICT(day) DO UPDATE SET kwh = excluded.kwh, source = excluded.source`,
+    `INSERT INTO daily_summary (day, kwh, source, production_kwh) VALUES (?, ?, ?, ?)
+     ON CONFLICT(day) DO UPDATE SET kwh = excluded.kwh, source = excluded.source,
+       production_kwh = COALESCE(excluded.production_kwh, production_kwh)`,
   );
   const upsertDeviceDailyStmt = ctx.db.prepare(
     `INSERT INTO device_daily (day, device_id, kwh) VALUES (?, ?, ?)
@@ -34,7 +35,7 @@ export function registerTrendsJobs(ctx: AppContext, scheduler: Scheduler): void 
       return false;
     }
     ctx.db.transaction(() => {
-      upsertDailyStmt.run(day, consumption.total, 'trends');
+      upsertDailyStmt.run(day, consumption.total, 'trends', trends.production?.total ?? null);
       for (const d of consumption.devices) {
         if (!d.total_kwh) continue;
         if (!deviceExistsStmt.get(d.id)) continue;

@@ -19,7 +19,9 @@ function historyPoints(ctx: AppContext): PowerPoint[] {
   const points: PowerPoint[] = [];
   for (const [b, bucketFrames] of [...byBucket.entries()].sort((a, z) => a[0] - z[0])) {
     const agg = aggregateFrames(bucketFrames);
-    if (agg) points.push({ t: b, wAvg: agg.wAvg, wMin: agg.wMin, wMax: agg.wMax });
+    if (agg) {
+      points.push({ t: b, wAvg: agg.wAvg, wMin: agg.wMin, wMax: agg.wMax, solarWAvg: agg.solarWAvg });
+    }
   }
   return points;
 }

@@ -15,6 +15,7 @@ export function registerStatusRoutes(app: FastifyInstance, ctx: AppContext): voi
       dbSizeBytes: dbSizeBytes(ctx.config.dataDir),
       mock: ctx.config.mock,
       lastBackup: getLastBackup(ctx),
+      solar: ctx.kv.get('solar.detected') === '1',
       activeBrownout: ctx.getActiveBrownout(),
       activeNeutralEpisode: ctx.getActiveNeutralEpisode(),
       activeStall: ctx.getActiveStall(),

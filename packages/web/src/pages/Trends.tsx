@@ -75,9 +75,19 @@ export function Trends() {
 
       <BillingCard />
 
-      <div className="grid grid-cols-2 gap-3">
+      <div className={`grid gap-3 ${usage.data?.totalProductionKwh !== undefined ? 'grid-cols-3' : 'grid-cols-2'}`}>
         <StatCard label="Total usage" value={formatKwh(usage.data?.totalKwh)} />
         <StatCard label="Estimated cost" value={formatCurrency(usage.data?.totalCost, currency)} />
+        {usage.data?.totalProductionKwh !== undefined && (
+          <StatCard
+            label="Solar production"
+            value={
+              <span style={{ color: 'var(--series-4)' }}>
+                {formatKwh(usage.data.totalProductionKwh)}
+              </span>
+            }
+          />
+        )}
       </div>
 
       {scale === 'day' && (

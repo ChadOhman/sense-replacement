@@ -36,6 +36,12 @@ If this project keeps your monitor alive, you can
 - **Your data, actually yours** — CSV and full-database exports from the UI,
   automatic nightly backups (`BACKUP_DIR` for a NAS mount), and a generated
   report each billing cycle.
+- **Solar (experimental)** — monitors with solar CTs are auto-detected:
+  live production + net readouts, a production series on the live chart,
+  daily production archived alongside consumption, and production totals in
+  Trends. Built against the community-documented API shape (`solar_w`,
+  trends `production`) and verified in simulation — the author's monitor has
+  no solar, so reports from real solar homes are very welcome (issue tracker!).
 
 > ⚠️ This uses Sense's **undocumented** cloud API (the monitor has no local
 > API). It may break without notice. Be a good citizen: the app keeps a single

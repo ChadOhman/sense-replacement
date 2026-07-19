@@ -23,7 +23,8 @@ export function getBackfillStatus(kv: KvStore): BackfillStatus {
 export function registerBackfillJob(ctx: AppContext, scheduler: Scheduler): void {
   // Never overwrite rows the live trends jobs already wrote.
   const insertDailyStmt = ctx.db.prepare(
-    `INSERT INTO daily_summary (day, kwh, source) VALUES (?, ?, 'trends') ON CONFLICT(day) DO NOTHING`,
+    `INSERT INTO daily_summary (day, kwh, source, production_kwh) VALUES (?, ?, 'trends', ?)
+     ON CONFLICT(day) DO NOTHING`,
   );
   const insertDeviceDailyStmt = ctx.db.prepare(
     `INSERT INTO device_daily (day, device_id, kwh) VALUES (?, ?, ?) ON CONFLICT(day, device_id) DO NOTHING`,
@@ -43,7 +44,7 @@ export function registerBackfillJob(ctx: AppContext, scheduler: Scheduler): void
       let days = Number(ctx.kv.get(DAYS_KEY) ?? '0');
       if (kwh > 0) {
         ctx.db.transaction(() => {
-          insertDailyStmt.run(cursor, kwh);
+          insertDailyStmt.run(cursor, kwh, trends.production?.total ?? null);
           for (const d of trends.consumption?.devices ?? []) {
             if (!d.total_kwh) continue;
             if (!deviceExistsStmt.get(d.id)) continue;
