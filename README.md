@@ -45,7 +45,9 @@ If this project keeps your monitor alive, you can
 
 > ⚠️ This uses Sense's **undocumented** cloud API (the monitor has no local
 > API). It may break without notice. Be a good citizen: the app keeps a single
-> realtime stream and stays far below observed rate limits.
+> realtime stream and stays far below observed rate limits. Exactly what we
+> call and how we behave is documented in
+> [docs/SENSE-API.md](docs/SENSE-API.md).
 
 ## Quick start (Docker)
 
