@@ -3,6 +3,7 @@ import type { LiveDevice, LiveFrame } from '@sense/shared';
 import type { SenseRealtimePayload } from '../sense/types.js';
 import { aggregateFrames, bucketStart } from './rollup.js';
 import { BrownoutDetector, type ActiveBrownout } from './brownout.js';
+import { FloatingNeutralDetector, type ActiveNeutralEpisode } from './neutral.js';
 
 const FLUSH_INTERVAL_MS = 30_000;
 const LAST_SEEN_THROTTLE_MS = 60_000;
@@ -24,9 +25,18 @@ export class RealtimeCollector {
   private readonly deleteVoltageEventStmt;
   private readonly brownouts = new BrownoutDetector();
   private activeVoltageEventId: number | bigint | null = null;
+  private readonly neutral = new FloatingNeutralDetector();
+  private activeNeutralEventId: number | bigint | null = null;
+  private readonly insertNeutralEventStmt;
+  private readonly endNeutralEventStmt;
+  private readonly deleteNeutralEventStmt;
 
   get activeBrownout(): ActiveBrownout | null {
     return this.brownouts.active;
+  }
+
+  get activeNeutralEpisode(): ActiveNeutralEpisode | null {
+    return this.neutral.active;
   }
 
   constructor(private readonly ctx: AppContext) {
@@ -54,9 +64,19 @@ export class RealtimeCollector {
       'UPDATE voltage_events SET ended_ts = ?, leg = ?, min_volts = ?, nominal_volts = ? WHERE id = ?',
     );
     this.deleteVoltageEventStmt = ctx.db.prepare('DELETE FROM voltage_events WHERE id = ?');
-    // A crash mid-brownout leaves a dangling open event; close it with unknown
+    this.insertNeutralEventStmt = ctx.db.prepare(
+      `INSERT INTO neutral_events (started_ts, ended_ts, max_spread_volts, high_leg, peak_high_volts, peak_low_volts, nominal_volts)
+       VALUES (?, NULL, ?, ?, ?, ?, ?)`,
+    );
+    this.endNeutralEventStmt = ctx.db.prepare(
+      `UPDATE neutral_events SET ended_ts = ?, max_spread_volts = ?, high_leg = ?, peak_high_volts = ?, peak_low_volts = ?, nominal_volts = ?
+       WHERE id = ?`,
+    );
+    this.deleteNeutralEventStmt = ctx.db.prepare('DELETE FROM neutral_events WHERE id = ?');
+    // A crash mid-event leaves a dangling open row; close it with unknown
     // duration rather than letting it read as "active" forever.
     ctx.db.prepare('UPDATE voltage_events SET ended_ts = started_ts WHERE ended_ts IS NULL').run();
+    ctx.db.prepare('UPDATE neutral_events SET ended_ts = started_ts WHERE ended_ts IS NULL').run();
   }
 
   start(): void {
@@ -93,7 +113,49 @@ export class RealtimeCollector {
     this.ensureDevices(devices, ts);
     this.detectTransitions(devices, ts);
     this.trackVoltage(ts, payload.voltage ?? []);
+    this.trackNeutral(ts, payload.voltage ?? []);
   };
+
+  private trackNeutral(ts: number, legs: number[]): void {
+    try {
+      const transition = this.neutral.sample(ts, legs);
+      if (!transition) {
+        const a = this.neutral.active;
+        if (a && this.activeNeutralEventId === null) {
+          const res = this.insertNeutralEventStmt.run(
+            a.startedTs, a.maxSpreadVolts, a.highLeg, a.peakHighVolts, a.peakLowVolts, a.nominalVolts,
+          );
+          this.activeNeutralEventId = res.lastInsertRowid;
+        }
+        return;
+      }
+      if (transition.kind === 'started') {
+        const a = transition.active;
+        const res = this.insertNeutralEventStmt.run(
+          a.startedTs, a.maxSpreadVolts, a.highLeg, a.peakHighVolts, a.peakLowVolts, a.nominalVolts,
+        );
+        this.activeNeutralEventId = res.lastInsertRowid;
+        this.ctx.log(
+          `neutral: divergence started — leg ${a.highLeg + 1} up to ${a.peakHighVolts.toFixed(1)} V, other down to ${a.peakLowVolts.toFixed(1)} V`,
+        );
+      } else if (transition.kind === 'ended' && this.activeNeutralEventId !== null) {
+        const e = transition.episode;
+        this.endNeutralEventStmt.run(
+          e.endedTs, e.maxSpreadVolts, e.highLeg, e.peakHighVolts, e.peakLowVolts, e.nominalVolts,
+          this.activeNeutralEventId,
+        );
+        this.activeNeutralEventId = null;
+        this.ctx.log(
+          `neutral: divergence ended — ${e.endedTs - e.startedTs}s, max spread ${e.maxSpreadVolts.toFixed(1)} V`,
+        );
+      } else if (transition.kind === 'discarded' && this.activeNeutralEventId !== null) {
+        this.deleteNeutralEventStmt.run(this.activeNeutralEventId);
+        this.activeNeutralEventId = null;
+      }
+    } catch (err) {
+      this.ctx.log(`neutral tracking failed: ${err instanceof Error ? err.message : String(err)}`);
+    }
+  }
 
   private trackVoltage(ts: number, legs: number[]): void {
     try {

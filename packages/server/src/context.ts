@@ -16,6 +16,8 @@ export interface AppContext {
   getBackfillStatus: () => BackfillStatus;
   /** Assigned by startCollectors; null until collectors run. */
   getActiveBrownout: () => AppStatus['activeBrownout'];
+  /** Assigned by startCollectors; null until collectors run. */
+  getActiveNeutralEpisode: () => AppStatus['activeNeutralEpisode'];
   log: (msg: string) => void;
 }
 

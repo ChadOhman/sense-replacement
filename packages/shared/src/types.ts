@@ -31,6 +31,26 @@ export interface LiveFrame {
   devices: LiveDevice[];
 }
 
+/** A floating-neutral divergence episode: the two legs moved in opposite
+ *  directions simultaneously. Active while endedTs is null. */
+export interface NeutralEvent {
+  id: number;
+  startedTs: number;
+  endedTs: number | null;
+  maxSpreadVolts: number;
+  highLeg: number; // 0-based leg that rose
+  peakHighVolts: number;
+  peakLowVolts: number;
+  nominalVolts: number;
+}
+
+/** Rolled-up neutral-health assessment over the trailing 7 days. */
+export interface NeutralHealth {
+  state: 'ok' | 'suspect' | 'alert';
+  events7d: number;
+  maxSpread7dVolts: number | null;
+}
+
 /** A mains voltage sag (brownout). Active while endedTs is null. */
 export interface VoltageEvent {
   id: number;
@@ -110,6 +130,12 @@ export interface AppStatus {
     startedTs: number;
     leg: number;
     minVolts: number;
+    nominalVolts: number;
+  } | null;
+  /** Floating-neutral divergence episode currently in progress, if any. */
+  activeNeutralEpisode: {
+    startedTs: number;
+    maxSpreadVolts: number;
     nominalVolts: number;
   } | null;
 }

@@ -41,6 +41,7 @@ const ctx: AppContext = {
   collectorStatus: new Map(),
   getBackfillStatus: () => getBackfillStatus(kv),
   getActiveBrownout: () => null,
+  getActiveNeutralEpisode: () => null,
   log,
 };
 

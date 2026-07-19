@@ -6,6 +6,8 @@ import type {
   LiveFrame,
   PowerPoint,
   Settings,
+  NeutralEvent,
+  NeutralHealth,
   UsageBucket,
   VoltageEvent,
 } from './types.js';
@@ -65,6 +67,12 @@ export interface EventsResponse {
 /** GET /api/voltage-events?from=&to= */
 export interface VoltageEventsResponse {
   events: VoltageEvent[]; // newest first; an active event has endedTs === null
+}
+
+/** GET /api/neutral-events?from=&to= */
+export interface NeutralEventsResponse {
+  health: NeutralHealth;
+  events: NeutralEvent[]; // newest first; an active episode has endedTs === null
 }
 
 /** GET /api/summary */

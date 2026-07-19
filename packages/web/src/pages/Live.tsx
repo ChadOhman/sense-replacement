@@ -1,5 +1,10 @@
 import { useQuery } from '@tanstack/react-query';
-import type { StatusResponse, SummaryResponse, VoltageEventsResponse } from '@sense/shared';
+import type {
+  NeutralEventsResponse,
+  StatusResponse,
+  SummaryResponse,
+  VoltageEventsResponse,
+} from '@sense/shared';
 import { get } from '../api/client.js';
 import { useLiveSocket } from '../hooks/useLiveSocket.js';
 import { LivePowerChart } from '../components/charts/LivePowerChart.js';
@@ -48,7 +53,14 @@ export function Live() {
     queryFn: () => get<VoltageEventsResponse>('/api/voltage-events'),
     refetchInterval: 30_000,
   });
+  const neutralEvents = useQuery({
+    queryKey: ['neutral-events'],
+    queryFn: () => get<NeutralEventsResponse>('/api/neutral-events'),
+    refetchInterval: 30_000,
+  });
   const brownout = status.data?.activeBrownout ?? null;
+  const neutralEpisode = status.data?.activeNeutralEpisode ?? null;
+  const neutralHealth = neutralEvents.data?.health ?? null;
 
   return (
     <div className="space-y-6">
@@ -61,6 +73,17 @@ export function Live() {
           <span className="tabular-nums">{brownout.minVolts.toFixed(1)} V</span> (nominal{' '}
           <span className="tabular-nums">{brownout.nominalVolts.toFixed(0)} V</span>), started{' '}
           {formatRelativeTime(brownout.startedTs)}
+        </div>
+      )}
+      {neutralEpisode && (
+        <div
+          className="rounded-md px-4 py-3 text-sm font-medium"
+          style={{ background: 'var(--status-critical)', color: '#fff' }}
+        >
+          ⚠️ Voltage legs diverging — spread of{' '}
+          <span className="tabular-nums">{neutralEpisode.maxSpreadVolts.toFixed(1)} V</span> between
+          legs, started {formatRelativeTime(neutralEpisode.startedTs)}. Repeated divergence can
+          indicate a floating neutral.
         </div>
       )}
       <div className="card p-6 text-center">
@@ -137,37 +160,95 @@ export function Live() {
         <div className="mb-2 text-sm font-medium" style={{ color: 'var(--text-secondary)' }}>
           Power quality
         </div>
-        {(voltageEvents.data?.events.length ?? 0) === 0 ? (
+        {neutralHealth && (
+          <div
+            className="mb-3 flex items-start justify-between gap-3 rounded-md px-3 py-2 text-sm"
+            style={{ background: 'var(--surface-2)' }}
+          >
+            <span>
+              <span className="mr-2 font-medium">Neutral health</span>
+              {neutralHealth.state === 'ok' && (
+                <span style={{ color: 'var(--status-good)' }}>✓ legs balanced — no divergence in 7 days</span>
+              )}
+              {neutralHealth.state === 'suspect' && (
+                <span style={{ color: 'var(--status-warning)' }}>
+                  {neutralHealth.events7d} divergence episode{neutralHealth.events7d === 1 ? '' : 's'} this week
+                  (max spread <span className="tabular-nums">{(neutralHealth.maxSpread7dVolts ?? 0).toFixed(1)} V</span>)
+                  — worth keeping an eye on
+                </span>
+              )}
+              {neutralHealth.state === 'alert' && (
+                <span style={{ color: 'var(--status-critical)' }}>
+                  possible floating neutral — {neutralHealth.events7d} episode{neutralHealth.events7d === 1 ? '' : 's'} this
+                  week, max spread <span className="tabular-nums">{(neutralHealth.maxSpread7dVolts ?? 0).toFixed(1)} V</span>.
+                  Contact an electrician.
+                </span>
+              )}
+            </span>
+          </div>
+        )}
+        {(voltageEvents.data?.events.length ?? 0) === 0 &&
+        (neutralEvents.data?.events.length ?? 0) === 0 ? (
           <div className="py-3 text-center text-sm" style={{ color: 'var(--status-good)' }}>
-            ✓ No brownouts in the last 30 days
+            ✓ No brownouts or leg divergence in the last 30 days
           </div>
         ) : (
           <ul className="divide-y" style={{ borderColor: 'var(--border)' }}>
-            {voltageEvents.data!.events.slice(0, 10).map((e) => (
-              <li key={e.id} className="flex items-center justify-between py-2 text-sm">
-                <span>
-                  <span
-                    className="mr-2 inline-block rounded-full px-2 py-0.5 text-xs font-medium"
-                    style={{
-                      background: 'var(--surface-2)',
-                      color: e.endedTs === null ? 'var(--status-critical)' : 'var(--status-warning)',
-                    }}
-                  >
-                    {e.endedTs === null ? 'ACTIVE' : 'BROWNOUT'}
-                  </span>
-                  leg {e.leg + 1} · min <span className="tabular-nums">{e.minVolts.toFixed(1)} V</span>
-                  {e.endedTs !== null && e.endedTs > e.startedTs && (
-                    <span style={{ color: 'var(--text-muted)' }}>
-                      {' '}
-                      · {formatDuration(e.endedTs - e.startedTs)}
+            {[
+              ...(voltageEvents.data?.events ?? []).map((e) => ({
+                key: `v${e.id}`,
+                startedTs: e.startedTs,
+                endedTs: e.endedTs,
+                label: e.endedTs === null ? 'ACTIVE' : 'BROWNOUT',
+                detail: (
+                  <>
+                    leg {e.leg + 1} · min <span className="tabular-nums">{e.minVolts.toFixed(1)} V</span>
+                  </>
+                ),
+              })),
+              ...(neutralEvents.data?.events ?? []).map((e) => ({
+                key: `n${e.id}`,
+                startedTs: e.startedTs,
+                endedTs: e.endedTs,
+                label: e.endedTs === null ? 'ACTIVE' : 'DIVERGENCE',
+                detail: (
+                  <>
+                    legs split{' '}
+                    <span className="tabular-nums">
+                      {e.peakHighVolts.toFixed(1)}/{e.peakLowVolts.toFixed(1)} V
+                    </span>{' '}
+                    · spread <span className="tabular-nums">{e.maxSpreadVolts.toFixed(1)} V</span>
+                  </>
+                ),
+              })),
+            ]
+              .sort((a, b) => b.startedTs - a.startedTs)
+              .slice(0, 10)
+              .map((e) => (
+                <li key={e.key} className="flex items-center justify-between py-2 text-sm">
+                  <span>
+                    <span
+                      className="mr-2 inline-block rounded-full px-2 py-0.5 text-xs font-medium"
+                      style={{
+                        background: 'var(--surface-2)',
+                        color: e.endedTs === null ? 'var(--status-critical)' : 'var(--status-warning)',
+                      }}
+                    >
+                      {e.label}
                     </span>
-                  )}
-                </span>
-                <span className="tabular-nums" style={{ color: 'var(--text-muted)' }}>
-                  {formatRelativeTime(e.startedTs)}
-                </span>
-              </li>
-            ))}
+                    {e.detail}
+                    {e.endedTs !== null && e.endedTs > e.startedTs && (
+                      <span style={{ color: 'var(--text-muted)' }}>
+                        {' '}
+                        · {formatDuration(e.endedTs - e.startedTs)}
+                      </span>
+                    )}
+                  </span>
+                  <span className="tabular-nums" style={{ color: 'var(--text-muted)' }}>
+                    {formatRelativeTime(e.startedTs)}
+                  </span>
+                </li>
+              ))}
           </ul>
         )}
       </div>

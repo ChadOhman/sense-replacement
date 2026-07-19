@@ -26,6 +26,12 @@ export function startCollectors(ctx: AppContext): {
 
   realtimeCollector.start();
   ctx.getActiveBrownout = () => realtimeCollector.activeBrownout;
+  ctx.getActiveNeutralEpisode = () => {
+    const a = realtimeCollector.activeNeutralEpisode;
+    return a
+      ? { startedTs: a.startedTs, maxSpreadVolts: a.maxSpreadVolts, nominalVolts: a.nominalVolts }
+      : null;
+  };
   ctx.sense.startRealtime();
 
   return {

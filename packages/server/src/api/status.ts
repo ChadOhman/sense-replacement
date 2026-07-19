@@ -14,6 +14,7 @@ export function registerStatusRoutes(app: FastifyInstance, ctx: AppContext): voi
       dbSizeBytes: dbSizeBytes(ctx.config.dataDir),
       mock: ctx.config.mock,
       activeBrownout: ctx.getActiveBrownout(),
+      activeNeutralEpisode: ctx.getActiveNeutralEpisode(),
     };
   });
 }

@@ -70,11 +70,20 @@ function totalFrame(ts: number): SenseRealtimePayload {
   // (starting 5 min into each cycle) so the detection pipeline is exercised.
   const cyclePos = ts % 600;
   const sagging = cyclePos >= 300 && cyclePos < 320;
-  const leg1 = sagging ? 104 + Math.sin(ts / 3) : 121.2 + Math.sin(ts / 45);
+  // Simulated floating neutral: 15-second anti-correlated divergence
+  // (leg 1 up, leg 2 down) every 30 minutes, offset to never overlap the sag.
+  const diverging = ts % 1800 >= 1200 && ts % 1800 < 1215;
+  let leg1 = 121.2 + Math.sin(ts / 45);
+  let leg2 = 121.5 + Math.cos(ts / 50);
+  if (sagging) leg1 = 104 + Math.sin(ts / 3);
+  else if (diverging) {
+    leg1 = 129 + Math.sin(ts / 3);
+    leg2 = 113 - Math.sin(ts / 3);
+  }
   return {
     w,
     hz: 60 + 0.02 * Math.sin(ts / 30),
-    voltage: [leg1, 121.5 + Math.cos(ts / 50)],
+    voltage: [leg1, leg2],
     devices,
   };
 }
