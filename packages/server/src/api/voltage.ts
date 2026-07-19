@@ -4,6 +4,8 @@ import type {
   NeutralEvent,
   NeutralEventsResponse,
   NeutralHealth,
+  StallEvent,
+  StallEventsResponse,
   VoltageEvent,
   VoltageEventsResponse,
   VoltageHistoryResponse,
@@ -74,6 +76,28 @@ export function registerVoltageRoutes(app: FastifyInstance, ctx: AppContext): vo
       maxSpread7dVolts: row.maxSpread,
     };
     return { health, events };
+  });
+
+  const stallStmt = ctx.db.prepare(
+    `SELECT id, started_ts AS startedTs, ended_ts AS endedTs, spike_count AS spikeCount,
+            avg_spike_w AS avgSpikeW, max_spike_w AS maxSpikeW
+     FROM stall_events
+     WHERE started_ts >= ? AND started_ts <= ?
+     ORDER BY started_ts DESC LIMIT 100`,
+  );
+  const stallCountStmt = ctx.db.prepare(
+    'SELECT COUNT(*) AS n FROM stall_events WHERE started_ts >= ?',
+  );
+
+  app.get('/stall-events', async (req, reply): Promise<StallEventsResponse | void> => {
+    const parsed = querySchema.safeParse(req.query);
+    if (!parsed.success) return reply.status(400).send({ error: parsed.error.message });
+    const now = Math.floor(Date.now() / 1000);
+    const from = parsed.data.from ?? now - 30 * 86400;
+    const to = parsed.data.to ?? now;
+    const events = stallStmt.all(from, to) as StallEvent[];
+    const count = stallCountStmt.get(now - 30 * 86400) as { n: number };
+    return { events, count30d: count.n };
   });
 
   const voltageHistoryStmt = ctx.db.prepare(

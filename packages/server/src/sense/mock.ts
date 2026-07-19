@@ -65,7 +65,14 @@ function totalFrame(ts: number): SenseRealtimePayload {
     .map((d) => ({ id: d.id, name: d.name, icon: d.icon ?? null, w: deviceWatts(d.id, ts) }))
     .filter((d) => d.w > 1);
   const other = deviceWatts('unknown', ts);
-  const w = devices.reduce((s, d) => s + d.w, 0) + other;
+  let w = devices.reduce((s, d) => s + d.w, 0) + other;
+  // Simulated motor stall: every hour, four ~1800 W failed-start spikes
+  // (6 s each, 30 s apart) from an undetected motor. Offset from the
+  // brownout (t%600 in [300,320)) and neutral (t%1800 in [1200,1215)) windows.
+  const stallPos = ts % 3600;
+  if (stallPos >= 2400 && stallPos < 2520 && (stallPos - 2400) % 30 < 6) {
+    w += 1800;
+  }
   // Simulated brownout: 20-second sag on leg 1 to ~104 V every 10 minutes
   // (starting 5 min into each cycle) so the detection pipeline is exercised.
   const cyclePos = ts % 600;

@@ -3,6 +3,7 @@ import { useQuery } from '@tanstack/react-query';
 import type uPlot from 'uplot';
 import type {
   NeutralEventsResponse,
+  StallEventsResponse,
   VoltageEventsResponse,
   VoltageHistoryResponse,
   VoltageSummaryResponse,
@@ -137,6 +138,11 @@ export function PowerQuality() {
   const voltageEvents = useQuery({
     queryKey: ['voltage-events'],
     queryFn: () => get<VoltageEventsResponse>('/api/voltage-events'),
+    refetchInterval: 30_000,
+  });
+  const stallEvents = useQuery({
+    queryKey: ['stall-events'],
+    queryFn: () => get<StallEventsResponse>('/api/stall-events'),
     refetchInterval: 30_000,
   });
   const neutralEvents = useQuery({
@@ -314,6 +320,50 @@ export function PowerQuality() {
                 ))}
               </ul>
             )}
+          </>
+        )}
+      </div>
+
+      <div className="card p-4">
+        <div className="mb-2 text-sm font-medium" style={{ color: 'var(--text-secondary)' }}>
+          Motor stalls
+        </div>
+        {stallEvents.isLoading ? (
+          <SkeletonRows rows={2} />
+        ) : (stallEvents.data?.count30d ?? 0) === 0 ? (
+          <div className="py-2 text-sm" style={{ color: 'var(--status-good)' }}>
+            ✓ No motor stalls detected in the last 30 days
+          </div>
+        ) : (
+          <>
+            <div className="py-2 text-sm" style={{ color: 'var(--status-critical)' }}>
+              {stallEvents.data!.count30d} stall event{stallEvents.data!.count30d === 1 ? '' : 's'} in the
+              last 30 days — a motor (often an AC compressor) is repeatedly failing to start. Repeated
+              stalling damages the motor; have it inspected.
+            </div>
+            <ul className="divide-y" style={{ borderColor: 'var(--border)' }}>
+              {stallEvents.data!.events.slice(0, 10).map((e) => (
+                <li key={e.id} className="flex items-center justify-between py-2 text-sm">
+                  <span>
+                    <span
+                      className="mr-2 inline-block rounded-full px-2 py-0.5 text-xs font-medium"
+                      style={{
+                        background: 'var(--surface-2)',
+                        color: e.endedTs === null ? 'var(--status-critical)' : 'var(--status-warning)',
+                      }}
+                    >
+                      {e.endedTs === null ? 'ACTIVE' : 'STALL'}
+                    </span>
+                    {e.spikeCount} start attempts ·{' '}
+                    <span className="tabular-nums">~{Math.round(e.avgSpikeW)} W</span> each (peak{' '}
+                    <span className="tabular-nums">{Math.round(e.maxSpikeW)} W</span>)
+                  </span>
+                  <span className="tabular-nums" style={{ color: 'var(--text-muted)' }}>
+                    {formatRelativeTime(e.startedTs)}
+                  </span>
+                </li>
+              ))}
+            </ul>
           </>
         )}
       </div>

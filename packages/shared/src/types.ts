@@ -51,6 +51,17 @@ export interface NeutralHealth {
   maxSpread7dVolts: number | null;
 }
 
+/** A motor stall: a cluster of repeated similar-magnitude power spikes
+ *  (failed motor start attempts). Active while endedTs is null. */
+export interface StallEvent {
+  id: number;
+  startedTs: number;
+  endedTs: number | null;
+  spikeCount: number;
+  avgSpikeW: number;
+  maxSpikeW: number;
+}
+
 /** A mains voltage sag (brownout). Active while endedTs is null. */
 export interface VoltageEvent {
   id: number;
@@ -137,6 +148,12 @@ export interface AppStatus {
     startedTs: number;
     maxSpreadVolts: number;
     nominalVolts: number;
+  } | null;
+  /** Motor stall cluster currently in progress, if any. */
+  activeStall: {
+    startedTs: number;
+    spikeCount: number;
+    avgSpikeW: number;
   } | null;
 }
 

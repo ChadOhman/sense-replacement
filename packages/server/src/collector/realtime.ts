@@ -4,6 +4,7 @@ import type { SenseRealtimePayload } from '../sense/types.js';
 import { aggregateFrames, aggregateLegVoltages, bucketStart } from './rollup.js';
 import { BrownoutDetector, type ActiveBrownout } from './brownout.js';
 import { FloatingNeutralDetector, type ActiveNeutralEpisode } from './neutral.js';
+import { MotorStallDetector, type ActiveStall } from './stall.js';
 
 const FLUSH_INTERVAL_MS = 30_000;
 const LAST_SEEN_THROTTLE_MS = 60_000;
@@ -38,6 +39,15 @@ export class RealtimeCollector {
 
   get activeNeutralEpisode(): ActiveNeutralEpisode | null {
     return this.neutral.active;
+  }
+
+  private readonly stalls = new MotorStallDetector();
+  private activeStallEventId: number | bigint | null = null;
+  private readonly insertStallEventStmt;
+  private readonly updateStallEventStmt;
+
+  get activeStall(): ActiveStall | null {
+    return this.stalls.active;
   }
 
   constructor(private readonly ctx: AppContext) {
@@ -78,10 +88,18 @@ export class RealtimeCollector {
       `INSERT OR REPLACE INTO voltage_rollup (resolution, bucket, leg, v_avg, v_min, v_max, sample_count)
        VALUES (30, ?, ?, ?, ?, ?, ?)`,
     );
+    this.insertStallEventStmt = ctx.db.prepare(
+      `INSERT INTO stall_events (started_ts, ended_ts, spike_count, avg_spike_w, max_spike_w)
+       VALUES (?, NULL, ?, ?, ?)`,
+    );
+    this.updateStallEventStmt = ctx.db.prepare(
+      'UPDATE stall_events SET ended_ts = ?, spike_count = ?, avg_spike_w = ?, max_spike_w = ? WHERE id = ?',
+    );
     // A crash mid-event leaves a dangling open row; close it with unknown
     // duration rather than letting it read as "active" forever.
     ctx.db.prepare('UPDATE voltage_events SET ended_ts = started_ts WHERE ended_ts IS NULL').run();
     ctx.db.prepare('UPDATE neutral_events SET ended_ts = started_ts WHERE ended_ts IS NULL').run();
+    ctx.db.prepare('UPDATE stall_events SET ended_ts = started_ts WHERE ended_ts IS NULL').run();
   }
 
   start(): void {
@@ -119,7 +137,35 @@ export class RealtimeCollector {
     this.detectTransitions(devices, ts);
     this.trackVoltage(ts, payload.voltage ?? []);
     this.trackNeutral(ts, payload.voltage ?? []);
+    this.trackStalls(ts, payload.w);
   };
+
+  private trackStalls(ts: number, w: number): void {
+    try {
+      const transition = this.stalls.sample(ts, w);
+      if (!transition) return;
+      if (transition.kind === 'detected') {
+        const a = transition.active;
+        const res = this.insertStallEventStmt.run(a.startedTs, a.spikeCount, a.avgSpikeW, a.maxSpikeW);
+        this.activeStallEventId = res.lastInsertRowid;
+        this.ctx.log(
+          `stall: repeated motor start attempts detected — ${a.spikeCount} spikes of ~${a.avgSpikeW.toFixed(0)} W`,
+        );
+      } else if (transition.kind === 'spike' && this.activeStallEventId !== null) {
+        const a = transition.active;
+        this.updateStallEventStmt.run(null, a.spikeCount, a.avgSpikeW, a.maxSpikeW, this.activeStallEventId);
+      } else if (transition.kind === 'ended' && this.activeStallEventId !== null) {
+        const e = transition.event;
+        this.updateStallEventStmt.run(e.endedTs, e.spikeCount, e.avgSpikeW, e.maxSpikeW, this.activeStallEventId);
+        this.activeStallEventId = null;
+        this.ctx.log(
+          `stall: cluster ended — ${e.spikeCount} spikes, avg ${e.avgSpikeW.toFixed(0)} W, max ${e.maxSpikeW.toFixed(0)} W`,
+        );
+      }
+    } catch (err) {
+      this.ctx.log(`stall tracking failed: ${err instanceof Error ? err.message : String(err)}`);
+    }
+  }
 
   private trackNeutral(ts: number, legs: number[]): void {
     try {

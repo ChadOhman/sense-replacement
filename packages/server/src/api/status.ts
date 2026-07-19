@@ -15,6 +15,7 @@ export function registerStatusRoutes(app: FastifyInstance, ctx: AppContext): voi
       mock: ctx.config.mock,
       activeBrownout: ctx.getActiveBrownout(),
       activeNeutralEpisode: ctx.getActiveNeutralEpisode(),
+      activeStall: ctx.getActiveStall(),
     };
   });
 }

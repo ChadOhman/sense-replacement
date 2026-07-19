@@ -18,6 +18,8 @@ export interface AppContext {
   getActiveBrownout: () => AppStatus['activeBrownout'];
   /** Assigned by startCollectors; null until collectors run. */
   getActiveNeutralEpisode: () => AppStatus['activeNeutralEpisode'];
+  /** Assigned by startCollectors; null until collectors run. */
+  getActiveStall: () => AppStatus['activeStall'];
   log: (msg: string) => void;
 }
 

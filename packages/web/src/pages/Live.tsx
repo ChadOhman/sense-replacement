@@ -45,6 +45,7 @@ export function Live() {
   });
   const brownout = status.data?.activeBrownout ?? null;
   const neutralEpisode = status.data?.activeNeutralEpisode ?? null;
+  const stall = status.data?.activeStall ?? null;
   const neutralHealth = neutralEvents.data?.health ?? null;
 
   return (
@@ -69,6 +70,17 @@ export function Live() {
           <span className="tabular-nums">{neutralEpisode.maxSpreadVolts.toFixed(1)} V</span> between
           legs, started {formatRelativeTime(neutralEpisode.startedTs)}. Repeated divergence can
           indicate a floating neutral.
+        </div>
+      )}
+      {stall && (
+        <div
+          className="rounded-md px-4 py-3 text-sm font-medium"
+          style={{ background: 'var(--status-critical)', color: '#fff' }}
+        >
+          ⚠️ Motor stall in progress — {stall.spikeCount} failed start attempts of ~
+          <span className="tabular-nums">{Math.round(stall.avgSpikeW)} W</span> since{' '}
+          {formatRelativeTime(stall.startedTs)}. Often an AC compressor; repeated stalling causes
+          damage.
         </div>
       )}
       <div className="card p-6 text-center">

@@ -32,6 +32,10 @@ export function startCollectors(ctx: AppContext): {
       ? { startedTs: a.startedTs, maxSpreadVolts: a.maxSpreadVolts, nominalVolts: a.nominalVolts }
       : null;
   };
+  ctx.getActiveStall = () => {
+    const a = realtimeCollector.activeStall;
+    return a ? { startedTs: a.startedTs, spikeCount: a.spikeCount, avgSpikeW: a.avgSpikeW } : null;
+  };
   ctx.sense.startRealtime();
 
   return {

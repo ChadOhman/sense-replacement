@@ -8,6 +8,7 @@ import type {
   Settings,
   NeutralEvent,
   NeutralHealth,
+  StallEvent,
   UsageBucket,
   VoltageEvent,
 } from './types.js';
@@ -73,6 +74,12 @@ export interface VoltageEventsResponse {
 export interface NeutralEventsResponse {
   health: NeutralHealth;
   events: NeutralEvent[]; // newest first; an active episode has endedTs === null
+}
+
+/** GET /api/stall-events?from=&to= */
+export interface StallEventsResponse {
+  events: StallEvent[]; // newest first; an active cluster has endedTs === null
+  count30d: number;
 }
 
 /** One rollup bucket of a single leg's voltage. */

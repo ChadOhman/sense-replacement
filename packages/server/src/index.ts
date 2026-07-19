@@ -42,6 +42,7 @@ const ctx: AppContext = {
   getBackfillStatus: () => getBackfillStatus(kv),
   getActiveBrownout: () => null,
   getActiveNeutralEpisode: () => null,
+  getActiveStall: () => null,
   log,
 };
 
