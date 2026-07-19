@@ -106,7 +106,7 @@ export function registerHistoryRoutes(app: FastifyInstance, ctx: AppContext): vo
       name: d.name,
       icon: d.icon,
       kwh: d.kwh,
-      cost: ctx.costs.costForKwhOnDay(d.kwh, end),
+      cost: ctx.costs.costForDeviceRange(d.deviceId, addDays(startDay, 1), end),
     }));
     if (rest.length > 0) {
       const otherKwh = rest.reduce((s, d) => s + d.kwh, 0);

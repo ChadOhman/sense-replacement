@@ -6,9 +6,11 @@ import type {
   DeviceListItem,
   DevicesResponse,
 } from '@sense/shared';
-import type { AppContext } from '../context.js';
+import { getBillingSettings, type AppContext } from '../context.js';
 import { addDays, monthOf, todayLocal } from '../lib/time.js';
 import { getStoredAnomalies } from '../collector/health.js';
+import { median, pairRuns } from '../lib/runs.js';
+import { rateForHour } from '../lib/rates.js';
 
 interface DeviceRow {
   id: string;
@@ -63,6 +65,56 @@ export function registerDeviceRoutes(app: FastifyInstance, ctx: AppContext): voi
      FROM events e JOIN devices d ON d.id = e.device_id
      WHERE e.device_id = ? ORDER BY e.ts DESC LIMIT 50`,
   );
+  const runEnergyStmt = ctx.db.prepare(
+    `SELECT COALESCE(SUM(w_avg * ?), 0) AS ws FROM device_power_rollup
+     WHERE resolution = ? AND device_id = ? AND bucket >= ? AND bucket < ?`,
+  );
+
+  /** Median duration/energy/cost over recent completed runs. Energy comes from
+   *  the device's own rollups during each run window; cost prices each run at
+   *  the rate of its start hour. */
+  const typicalRun = (deviceId: string, events: DeviceEvent[]) => {
+    const runs = pairRuns(events.map((e) => ({ ts: e.ts, type: e.type }))).slice(-10);
+    if (runs.length < 2) return null;
+    const now = Math.floor(Date.now() / 1000);
+    const { ratePlan } = getBillingSettings(ctx);
+    const kwhs: number[] = [];
+    const costs: number[] = [];
+    for (const run of runs) {
+      // 30s rollups cover the last 7 days; older runs use 5-min rollups.
+      const resolution = run.onTs > now - 6 * 86400 ? 30 : 300;
+      const ws = (
+        runEnergyStmt.get(resolution, resolution, deviceId, run.onTs, run.offTs) as { ws: number }
+      ).ws;
+      if (ws <= 0) continue;
+      const kwh = ws / 3_600_000;
+      const tz = ctx.sense.monitorTz ?? ctx.config.tz;
+      const parts = new Intl.DateTimeFormat('en-US', {
+        timeZone: tz,
+        month: 'numeric',
+        hour: 'numeric',
+        hour12: false,
+        weekday: 'short',
+      }).formatToParts(new Date(run.onTs * 1000));
+      const get = (t: string) => parts.find((p) => p.type === t)?.value ?? '';
+      const weekday = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].indexOf(get('weekday'));
+      const cents = rateForHour(
+        ratePlan,
+        Number(get('month')),
+        weekday < 0 ? 0 : weekday,
+        Number(get('hour')) % 24,
+      );
+      kwhs.push(kwh);
+      costs.push((kwh * cents) / 100);
+    }
+    if (kwhs.length < 2) return null;
+    return {
+      durationS: median(runs.map((r) => r.durationS))!,
+      kwh: median(kwhs)!,
+      cost: median(costs)!,
+      runs: kwhs.length,
+    };
+  };
 
   app.get('/devices', async (): Promise<DevicesResponse> => {
     const tz = ctx.sense.monitorTz ?? ctx.config.tz;
@@ -79,7 +131,7 @@ export function registerDeviceRoutes(app: FastifyInstance, ctx: AppContext): voi
         nowW: liveById.get(r.id) ?? null,
         todayKwh,
         monthKwh,
-        monthCost: ctx.costs.costForKwhOnDay(monthKwh, today),
+        monthCost: ctx.costs.costForDeviceRange(r.id, `${month}-01`, today),
         anomaly: anomalies[r.id] ?? null,
       };
     });
@@ -99,11 +151,20 @@ export function registerDeviceRoutes(app: FastifyInstance, ctx: AppContext): voi
     for (let i = 29; i >= 0; i--) {
       const day = addDays(today, -i);
       const kwh = dailyByDay.get(day) ?? 0;
-      daily.push({ day, kwh, cost: ctx.costs.costForKwhOnDay(kwh, day) });
+      daily.push({ day, kwh, cost: ctx.costs.costForDeviceDay(row.id, day) });
     }
 
     const monthly = (monthlyStmt.all(row.id, addDays(today, -365)) as { month: string; kwh: number }[]).map(
-      (r) => ({ month: r.month, kwh: r.kwh, cost: ctx.costs.costForKwhOnDay(r.kwh, `${r.month}-15`) }),
+      (r) => {
+        const monthStart = `${r.month}-01`;
+        const nextMonth = addDays(`${r.month}-28`, 4).slice(0, 7);
+        const monthEnd = addDays(`${nextMonth}-01`, -1);
+        return {
+          month: r.month,
+          kwh: r.kwh,
+          cost: ctx.costs.costForDeviceRange(row.id, monthStart, monthEnd < today ? monthEnd : today),
+        };
+      },
     );
 
     const events = eventsStmt.all(row.id) as DeviceEvent[];
@@ -115,6 +176,7 @@ export function registerDeviceRoutes(app: FastifyInstance, ctx: AppContext): voi
       daily,
       monthly,
       events,
+      typicalRun: typicalRun(row.id, events),
     };
   });
 }

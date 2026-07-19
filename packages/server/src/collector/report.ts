@@ -82,7 +82,7 @@ export function registerReportJob(ctx: AppContext, scheduler: Scheduler): void {
         ).map((d) => ({
           name: d.name,
           kwh: d.kwh,
-          cost: ctx.costs.costForKwhOnDay(d.kwh, prev.endDay),
+          cost: ctx.costs.costForDeviceRange(d.id, prev.startDay, addDays(prev.endDay, -1)),
         })),
         powerQuality: {
           brownouts: (brownoutCount.get(startTs, endTs) as { n: number }).n,

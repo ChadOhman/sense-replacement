@@ -82,6 +82,8 @@ export interface DeviceDetailResponse {
   daily: { day: string; kwh: number; cost: number }[]; // last 30 days
   monthly: { month: string; kwh: number; cost: number }[]; // last 12 months
   events: DeviceEvent[]; // most recent 50
+  /** Median stats over recent completed runs (null without enough run data). */
+  typicalRun: { durationS: number; kwh: number; cost: number; runs: number } | null;
 }
 
 /** GET /api/events?from=&to=&deviceId= */

@@ -5,7 +5,7 @@ import { get } from '../api/client.js';
 import { DeviceIcon } from '../components/DeviceIcon.js';
 import { UsageBarChart } from '../components/charts/UsageBarChart.js';
 import { SkeletonRows } from '../components/Skeleton.js';
-import { formatDayLabel, formatRelativeTime, formatWatts } from '../lib/format.js';
+import { formatCurrency, formatDayLabel, formatRelativeTime, formatWatts } from '../lib/format.js';
 
 export function DeviceDetail() {
   const { id } = useParams<{ id: string }>();
@@ -31,7 +31,7 @@ export function DeviceDetail() {
       </div>
     );
   }
-  const { device, nowW, daily, monthly, events } = detail.data;
+  const { device, nowW, daily, monthly, events, typicalRun } = detail.data;
 
   return (
     <div className="space-y-6">
@@ -52,6 +52,16 @@ export function DeviceDetail() {
               {formatWatts(nowW)}
             </span>
           </div>
+          {typicalRun && (
+            <div className="mt-0.5 text-sm tabular-nums" style={{ color: 'var(--text-secondary)' }}>
+              Typical run: {Math.round(typicalRun.durationS / 60)} min ·{' '}
+              {typicalRun.kwh.toFixed(2)} kWh ·{' '}
+              <span style={{ color: 'var(--series-3)' }}>
+                ≈ {typicalRun.cost < 0.01 ? `< ${formatCurrency(0.01, currency)}` : formatCurrency(typicalRun.cost, currency)}
+              </span>{' '}
+              <span style={{ color: 'var(--text-muted)' }}>({typicalRun.runs} recent runs)</span>
+            </div>
+          )}
         </div>
       </div>
 
