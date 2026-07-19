@@ -120,13 +120,15 @@ export function registerHistoryRoutes(app: FastifyInstance, ctx: AppContext): vo
     }
 
     const totalCost = buckets.reduce((s, b) => s + b.cost, 0);
-    const production = ctx.db
-      .prepare(
-        'SELECT SUM(production_kwh) AS kwh FROM daily_summary WHERE day > ? AND day <= ? AND production_kwh IS NOT NULL',
-      )
-      .get(startDay, end) as { kwh: number | null };
     const response: UsageResponse = { scale, buckets, totalKwh, totalCost, devices };
-    if (production.kwh !== null) response.totalProductionKwh = production.kwh;
+    if (ctx.kv.get('solar.detected') === '1') {
+      const production = ctx.db
+        .prepare(
+          'SELECT SUM(production_kwh) AS kwh FROM daily_summary WHERE day > ? AND day <= ? AND production_kwh IS NOT NULL',
+        )
+        .get(startDay, end) as { kwh: number | null };
+      response.totalProductionKwh = production.kwh ?? 0;
+    }
     if (parsed.data.compare === 1) {
       response.compare = bucketsForRange(scale, addDays(startDay, -365), addDays(end, -365));
     }

@@ -43,6 +43,10 @@ export function registerBackfillJob(ctx: AppContext, scheduler: Scheduler): void
       let emptyStreak = Number(ctx.kv.get(EMPTY_STREAK_KEY) ?? '0');
       let days = Number(ctx.kv.get(DAYS_KEY) ?? '0');
       if (kwh > 0) {
+        if ((trends.production?.total ?? 0) > 0 && ctx.kv.get('solar.detected') === null) {
+          ctx.kv.set('solar.detected', '1');
+          ctx.log('solar: production detected via backfill');
+        }
         ctx.db.transaction(() => {
           insertDailyStmt.run(cursor, kwh, trends.production?.total ?? null);
           for (const d of trends.consumption?.devices ?? []) {

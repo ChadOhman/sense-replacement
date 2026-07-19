@@ -34,6 +34,12 @@ export function registerTrendsJobs(ctx: AppContext, scheduler: Scheduler): void 
       ctx.log(`trends: no consumption data for ${day}`);
       return false;
     }
+    // A nonzero production total also counts as solar detection (covers homes
+    // where the realtime stream is down but trends still report generation).
+    if ((trends.production?.total ?? 0) > 0 && ctx.kv.get('solar.detected') === null) {
+      ctx.kv.set('solar.detected', '1');
+      ctx.log('solar: production detected via trends');
+    }
     ctx.db.transaction(() => {
       upsertDailyStmt.run(day, consumption.total, 'trends', trends.production?.total ?? null);
       for (const d of consumption.devices) {
