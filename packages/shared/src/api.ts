@@ -1,6 +1,7 @@
 import type {
   AppStatus,
   BillingSettings,
+  CycleReport,
   Device,
   DeviceAnomalyInfo,
   DeviceEvent,
@@ -162,6 +163,11 @@ export interface SummaryResponse {
 /** GET /api/outages?from=&to= */
 export interface OutagesResponse {
   outages: Outage[]; // newest first
+}
+
+/** GET /api/reports */
+export interface ReportsResponse {
+  reports: CycleReport[]; // newest first
 }
 
 /** GET/PUT /api/settings */

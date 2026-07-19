@@ -4,6 +4,7 @@ import { get } from '../api/client.js';
 import { PageHeader } from '../components/PageHeader.js';
 import { AlertSettingsCard } from '../components/AlertSettingsCard.js';
 import { RatePlanCard } from '../components/RatePlanCard.js';
+import { ExportCard } from '../components/ExportCard.js';
 import { formatBytes, formatRelativeTime } from '../lib/format.js';
 
 export function Settings() {
@@ -22,6 +23,8 @@ export function Settings() {
       <RatePlanCard />
 
       <AlertSettingsCard />
+
+      <ExportCard />
 
       <div className="card space-y-3 p-4">
         <div className="flex items-center justify-between">
@@ -51,6 +54,14 @@ export function Settings() {
           <div>
             <div style={{ color: 'var(--text-muted)' }}>Database</div>
             <div className="tabular-nums">{status.data ? formatBytes(status.data.dbSizeBytes) : '…'}</div>
+          </div>
+          <div>
+            <div style={{ color: 'var(--text-muted)' }}>Last backup</div>
+            <div className="tabular-nums">
+              {status.data?.lastBackup
+                ? `${formatRelativeTime(status.data.lastBackup.ts)} (${formatBytes(status.data.lastBackup.sizeBytes)})`
+                : 'never'}
+            </div>
           </div>
           <div>
             <div style={{ color: 'var(--text-muted)' }}>History backfill</div>

@@ -128,6 +128,20 @@ export interface DeviceEvent {
   source: 'timeline' | 'realtime';
 }
 
+/** A generated billing-cycle report. */
+export interface CycleReport {
+  period: string; // cycle start day
+  periodEnd: string;
+  generatedTs: number;
+  totalKwh: number;
+  totalCost: number;
+  currency: string;
+  prevCycleCost: number | null;
+  topDevices: { name: string; kwh: number; cost: number }[];
+  powerQuality: { brownouts: number; divergences: number; stalls: number; outages: number };
+  anomalies: { name: string; pct: number; direction: 'up' | 'down' }[];
+}
+
 export type AuthState = 'ok' | 'needs_mfa' | 'error' | 'unconfigured';
 
 export interface CollectorStatus {
@@ -151,6 +165,7 @@ export interface AppStatus {
   backfill: BackfillStatus;
   dbSizeBytes: number;
   mock: boolean;
+  lastBackup: { ts: number; sizeBytes: number } | null;
   /** Brownout currently in progress, if any. */
   activeBrownout: {
     startedTs: number;

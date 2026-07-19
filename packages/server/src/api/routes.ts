@@ -12,6 +12,8 @@ import { registerVoltageRoutes } from './voltage.js';
 import { registerAlertRoutes } from './alerts.js';
 import { registerBillingRoutes } from './billing.js';
 import { registerOutageRoutes } from './outages.js';
+import { registerExportRoutes } from './export.js';
+import { registerReportRoutes } from './reports.js';
 import { registerMetricsRoutes } from './metrics.js';
 
 export async function registerRoutes(app: FastifyInstance, ctx: AppContext): Promise<void> {
@@ -29,6 +31,8 @@ export async function registerRoutes(app: FastifyInstance, ctx: AppContext): Pro
       registerAlertRoutes(api, ctx);
       registerBillingRoutes(api, ctx);
       registerOutageRoutes(api, ctx);
+      registerExportRoutes(api, ctx);
+      registerReportRoutes(api, ctx);
     },
     { prefix: '/api' },
   );

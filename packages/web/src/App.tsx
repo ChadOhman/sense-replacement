@@ -7,6 +7,7 @@ import { Devices } from './pages/Devices.js';
 import { DeviceDetail } from './pages/DeviceDetail.js';
 import { Trends } from './pages/Trends.js';
 import { PowerQuality } from './pages/PowerQuality.js';
+import { Reports } from './pages/Reports.js';
 import { Settings } from './pages/Settings.js';
 import { SetupMfa } from './pages/SetupMfa.js';
 
@@ -15,6 +16,7 @@ const NAV = [
   { to: '/devices', label: 'Devices', icon: '🔌' },
   { to: '/trends', label: 'Trends', icon: '📊' },
   { to: '/power-quality', label: 'Power', icon: '🩺' },
+  { to: '/reports', label: 'Reports', icon: '📄' },
   { to: '/settings', label: 'Settings', icon: '⚙️' },
 ];
 
@@ -131,6 +133,7 @@ export function App() {
           <Route path="/devices/:id" element={<DeviceDetail />} />
           <Route path="/trends" element={<Trends />} />
           <Route path="/power-quality" element={<PowerQuality />} />
+          <Route path="/reports" element={<Reports />} />
           <Route path="/settings" element={<Settings />} />
         </Routes>
       </main>

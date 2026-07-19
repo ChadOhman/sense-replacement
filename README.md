@@ -24,6 +24,15 @@ data locally** so your history survives even if Sense's cloud goes dark.
 - **Alerts & integrations** — ntfy/webhook notifications for detected events
   and device-finished runs (configurable in Settings), Home Assistant via MQTT
   discovery (`MQTT_URL`), and a Prometheus `/metrics` endpoint.
+- **Real billing** — flat or time-of-use rate plans priced against your actual
+  hourly usage profile, billing-cycle alignment, month-end bill forecasts, and
+  year-over-year comparisons.
+- **Health analytics** — per-device anomaly baselines (failing-appliance early
+  warning), always-on creep detection, an outage log derived from archive
+  gaps, and optional weather degree-day tracking (`LAT`/`LON`).
+- **Your data, actually yours** — CSV and full-database exports from the UI,
+  automatic nightly backups (`BACKUP_DIR` for a NAS mount), and a generated
+  report each billing cycle.
 
 > ⚠️ This uses Sense's **undocumented** cloud API (the monitor has no local
 > API). It may break without notice. Be a good citizen: the app keeps a single
