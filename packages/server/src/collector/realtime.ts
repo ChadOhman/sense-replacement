@@ -2,6 +2,7 @@ import type { AppContext } from '../context.js';
 import type { LiveDevice, LiveFrame } from '@sense/shared';
 import type { SenseRealtimePayload } from '../sense/types.js';
 import { aggregateFrames, bucketStart } from './rollup.js';
+import { BrownoutDetector, type ActiveBrownout } from './brownout.js';
 
 const FLUSH_INTERVAL_MS = 30_000;
 const LAST_SEEN_THROTTLE_MS = 60_000;
@@ -18,6 +19,15 @@ export class RealtimeCollector {
   private readonly insertDevicePowerRollupStmt;
   private readonly insertEventStmt;
   private readonly deviceExistsStmt;
+  private readonly insertVoltageEventStmt;
+  private readonly endVoltageEventStmt;
+  private readonly deleteVoltageEventStmt;
+  private readonly brownouts = new BrownoutDetector();
+  private activeVoltageEventId: number | bigint | null = null;
+
+  get activeBrownout(): ActiveBrownout | null {
+    return this.brownouts.active;
+  }
 
   constructor(private readonly ctx: AppContext) {
     this.insertDeviceStmt = ctx.db.prepare(
@@ -37,6 +47,16 @@ export class RealtimeCollector {
       `INSERT OR IGNORE INTO events (device_id, ts, type, watts, source) VALUES (?, ?, ?, ?, 'realtime')`,
     );
     this.deviceExistsStmt = ctx.db.prepare('SELECT 1 FROM devices WHERE id = ?');
+    this.insertVoltageEventStmt = ctx.db.prepare(
+      'INSERT INTO voltage_events (started_ts, ended_ts, leg, min_volts, nominal_volts) VALUES (?, NULL, ?, ?, ?)',
+    );
+    this.endVoltageEventStmt = ctx.db.prepare(
+      'UPDATE voltage_events SET ended_ts = ?, leg = ?, min_volts = ?, nominal_volts = ? WHERE id = ?',
+    );
+    this.deleteVoltageEventStmt = ctx.db.prepare('DELETE FROM voltage_events WHERE id = ?');
+    // A crash mid-brownout leaves a dangling open event; close it with unknown
+    // duration rather than letting it read as "active" forever.
+    ctx.db.prepare('UPDATE voltage_events SET ended_ts = started_ts WHERE ended_ts IS NULL').run();
   }
 
   start(): void {
@@ -61,11 +81,55 @@ export class RealtimeCollector {
       icon: d.icon ?? null,
       w: d.w,
     }));
-    const frame: LiveFrame = { ts, w: payload.w, volts, hz: payload.hz ?? null, devices };
+    const frame: LiveFrame = {
+      ts,
+      w: payload.w,
+      volts,
+      voltageLegs: payload.voltage ?? [],
+      hz: payload.hz ?? null,
+      devices,
+    };
     this.ctx.ring.push(frame);
     this.ensureDevices(devices, ts);
     this.detectTransitions(devices, ts);
+    this.trackVoltage(ts, payload.voltage ?? []);
   };
+
+  private trackVoltage(ts: number, legs: number[]): void {
+    try {
+      const transition = this.brownouts.sample(ts, legs);
+      if (!transition) {
+        // A sag that began in the same sample that closed a gapped-out event
+        // surfaces via .active without a 'started' transition — persist it.
+        const a = this.brownouts.active;
+        if (a && this.activeVoltageEventId === null) {
+          const res = this.insertVoltageEventStmt.run(a.startedTs, a.leg, a.minVolts, a.nominalVolts);
+          this.activeVoltageEventId = res.lastInsertRowid;
+        }
+        return;
+      }
+      if (transition.kind === 'started') {
+        const a = transition.active;
+        const res = this.insertVoltageEventStmt.run(a.startedTs, a.leg, a.minVolts, a.nominalVolts);
+        this.activeVoltageEventId = res.lastInsertRowid;
+        this.ctx.log(
+          `brownout: started — leg ${a.leg + 1} at ${a.minVolts.toFixed(1)} V (nominal ${a.nominalVolts.toFixed(1)} V)`,
+        );
+      } else if (transition.kind === 'ended' && this.activeVoltageEventId !== null) {
+        const e = transition.event;
+        this.endVoltageEventStmt.run(e.endedTs, e.leg, e.minVolts, e.nominalVolts, this.activeVoltageEventId);
+        this.activeVoltageEventId = null;
+        this.ctx.log(
+          `brownout: ended — ${e.endedTs - e.startedTs}s, min ${e.minVolts.toFixed(1)} V on leg ${e.leg + 1}`,
+        );
+      } else if (transition.kind === 'discarded' && this.activeVoltageEventId !== null) {
+        this.deleteVoltageEventStmt.run(this.activeVoltageEventId);
+        this.activeVoltageEventId = null;
+      }
+    } catch (err) {
+      this.ctx.log(`brownout tracking failed: ${err instanceof Error ? err.message : String(err)}`);
+    }
+  }
 
   private ensureDevices(devices: LiveDevice[], ts: number): void {
     for (const d of devices) {

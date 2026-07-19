@@ -25,9 +25,20 @@ export interface LiveDevice {
 export interface LiveFrame {
   ts: number; // epoch seconds UTC
   w: number; // total mains watts
-  volts: number | null;
+  volts: number | null; // average across legs
+  voltageLegs: number[]; // per-leg RMS voltage (empty if unknown)
   hz: number | null;
   devices: LiveDevice[];
+}
+
+/** A mains voltage sag (brownout). Active while endedTs is null. */
+export interface VoltageEvent {
+  id: number;
+  startedTs: number;
+  endedTs: number | null;
+  leg: number; // 0-based leg index with the lowest voltage
+  minVolts: number;
+  nominalVolts: number; // learned per-leg nominal at event time
 }
 
 /** Aggregated whole-home power over one rollup bucket. */
@@ -94,6 +105,13 @@ export interface AppStatus {
   backfill: BackfillStatus;
   dbSizeBytes: number;
   mock: boolean;
+  /** Brownout currently in progress, if any. */
+  activeBrownout: {
+    startedTs: number;
+    leg: number;
+    minVolts: number;
+    nominalVolts: number;
+  } | null;
 }
 
 export interface Settings {

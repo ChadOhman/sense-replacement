@@ -8,6 +8,7 @@ import { registerEventRoutes } from './events.js';
 import { registerSummaryRoutes } from './summary.js';
 import { registerSettingsRoutes } from './settings.js';
 import { registerSetupRoutes } from './setup.js';
+import { registerVoltageRoutes } from './voltage.js';
 
 export async function registerRoutes(app: FastifyInstance, ctx: AppContext): Promise<void> {
   await app.register(
@@ -20,6 +21,7 @@ export async function registerRoutes(app: FastifyInstance, ctx: AppContext): Pro
       registerSummaryRoutes(api, ctx);
       registerSettingsRoutes(api, ctx);
       registerSetupRoutes(api, ctx);
+      registerVoltageRoutes(api, ctx);
     },
     { prefix: '/api' },
   );

@@ -7,6 +7,7 @@ function frame(ts: number, w: number, devices: { id: string; w: number }[] = [],
     ts,
     w,
     volts,
+    voltageLegs: volts !== null ? [volts] : [],
     hz,
     devices: devices.map((d) => ({ id: d.id, name: d.id, icon: null, w: d.w })),
   };

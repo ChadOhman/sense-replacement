@@ -25,6 +25,7 @@ export function startCollectors(ctx: AppContext): {
   registerRetentionJob(ctx, scheduler);
 
   realtimeCollector.start();
+  ctx.getActiveBrownout = () => realtimeCollector.activeBrownout;
   ctx.sense.startRealtime();
 
   return {

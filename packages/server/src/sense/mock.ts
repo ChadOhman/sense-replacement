@@ -66,10 +66,15 @@ function totalFrame(ts: number): SenseRealtimePayload {
     .filter((d) => d.w > 1);
   const other = deviceWatts('unknown', ts);
   const w = devices.reduce((s, d) => s + d.w, 0) + other;
+  // Simulated brownout: 20-second sag on leg 1 to ~104 V every 10 minutes
+  // (starting 5 min into each cycle) so the detection pipeline is exercised.
+  const cyclePos = ts % 600;
+  const sagging = cyclePos >= 300 && cyclePos < 320;
+  const leg1 = sagging ? 104 + Math.sin(ts / 3) : 121.2 + Math.sin(ts / 45);
   return {
     w,
     hz: 60 + 0.02 * Math.sin(ts / 30),
-    voltage: [121.2 + Math.sin(ts / 45), 121.5 + Math.cos(ts / 50)],
+    voltage: [leg1, 121.5 + Math.cos(ts / 50)],
     devices,
   };
 }

@@ -40,6 +40,7 @@ const ctx: AppContext = {
   ring: new LiveRingBuffer(3600),
   collectorStatus: new Map(),
   getBackfillStatus: () => getBackfillStatus(kv),
+  getActiveBrownout: () => null,
   log,
 };
 

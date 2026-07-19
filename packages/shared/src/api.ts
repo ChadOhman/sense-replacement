@@ -7,6 +7,7 @@ import type {
   PowerPoint,
   Settings,
   UsageBucket,
+  VoltageEvent,
 } from './types.js';
 
 /** Messages sent server -> browser on the /api/live websocket. */
@@ -59,6 +60,11 @@ export interface DeviceDetailResponse {
 /** GET /api/events?from=&to=&deviceId= */
 export interface EventsResponse {
   events: DeviceEvent[];
+}
+
+/** GET /api/voltage-events?from=&to= */
+export interface VoltageEventsResponse {
+  events: VoltageEvent[]; // newest first; an active event has endedTs === null
 }
 
 /** GET /api/summary */

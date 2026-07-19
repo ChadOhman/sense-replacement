@@ -1,4 +1,4 @@
-import type { BackfillStatus, CollectorStatus, Settings } from '@sense/shared';
+import type { AppStatus, BackfillStatus, CollectorStatus, Settings } from '@sense/shared';
 import type { Config } from './config.js';
 import type { Db, KvStore } from './db/index.js';
 import type { SenseClient } from './sense/client.js';
@@ -14,6 +14,8 @@ export interface AppContext {
   /** Collector health, keyed by job name; populated by the scheduler. */
   collectorStatus: Map<string, CollectorStatus>;
   getBackfillStatus: () => BackfillStatus;
+  /** Assigned by startCollectors; null until collectors run. */
+  getActiveBrownout: () => AppStatus['activeBrownout'];
   log: (msg: string) => void;
 }
 

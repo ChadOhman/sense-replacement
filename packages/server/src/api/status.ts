@@ -13,6 +13,7 @@ export function registerStatusRoutes(app: FastifyInstance, ctx: AppContext): voi
       backfill: ctx.getBackfillStatus(),
       dbSizeBytes: dbSizeBytes(ctx.config.dataDir),
       mock: ctx.config.mock,
+      activeBrownout: ctx.getActiveBrownout(),
     };
   });
 }
