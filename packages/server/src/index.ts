@@ -10,8 +10,11 @@ import { KvTokenStore } from './sense/tokenstore.js';
 import { SenseCloudClient } from './sense/rest.js';
 import { SenseMockClient } from './sense/mock.js';
 import { LiveRingBuffer } from './lib/ringbuffer.js';
+import { EventEmitter } from 'node:events';
 import { getBackfillStatus, startCollectors } from './collector/index.js';
 import { registerRoutes } from './api/routes.js';
+import { Notifier } from './alerts/notifier.js';
+import { MqttPublisher } from './alerts/mqtt.js';
 import type { AppContext } from './context.js';
 
 const log = (msg: string): void => {
@@ -43,8 +46,14 @@ const ctx: AppContext = {
   getActiveBrownout: () => null,
   getActiveNeutralEpisode: () => null,
   getActiveStall: () => null,
+  events: new EventEmitter(),
   log,
 };
+
+const notifier = new Notifier(ctx);
+notifier.start();
+const mqttPublisher = new MqttPublisher(ctx);
+mqttPublisher.start();
 
 try {
   await sense.start();
@@ -98,6 +107,7 @@ async function shutdown(): Promise<void> {
   shuttingDown = true;
   log('shutting down...');
   if (authPoll) clearInterval(authPoll);
+  mqttPublisher.stop();
   collectors?.stop();
   await sense.stop();
   await app.close();

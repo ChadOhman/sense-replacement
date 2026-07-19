@@ -1,4 +1,4 @@
-import type { AppContext } from '../context.js';
+import { emitEvent, type AppContext } from '../context.js';
 import type { LiveDevice, LiveFrame } from '@sense/shared';
 import type { SenseRealtimePayload } from '../sense/types.js';
 import { aggregateFrames, aggregateLegVoltages, bucketStart } from './rollup.js';
@@ -151,6 +151,12 @@ export class RealtimeCollector {
         this.ctx.log(
           `stall: repeated motor start attempts detected — ${a.spikeCount} spikes of ~${a.avgSpikeW.toFixed(0)} W`,
         );
+        emitEvent(this.ctx, {
+          type: 'stall.detected',
+          ts: a.startedTs,
+          spikeCount: a.spikeCount,
+          avgSpikeW: a.avgSpikeW,
+        });
       } else if (transition.kind === 'spike' && this.activeStallEventId !== null) {
         const a = transition.active;
         this.updateStallEventStmt.run(null, a.spikeCount, a.avgSpikeW, a.maxSpikeW, this.activeStallEventId);
@@ -161,6 +167,13 @@ export class RealtimeCollector {
         this.ctx.log(
           `stall: cluster ended — ${e.spikeCount} spikes, avg ${e.avgSpikeW.toFixed(0)} W, max ${e.maxSpikeW.toFixed(0)} W`,
         );
+        emitEvent(this.ctx, {
+          type: 'stall.ended',
+          ts: e.endedTs,
+          spikeCount: e.spikeCount,
+          avgSpikeW: e.avgSpikeW,
+          maxSpikeW: e.maxSpikeW,
+        });
       }
     } catch (err) {
       this.ctx.log(`stall tracking failed: ${err instanceof Error ? err.message : String(err)}`);
@@ -189,6 +202,11 @@ export class RealtimeCollector {
         this.ctx.log(
           `neutral: divergence started — leg ${a.highLeg + 1} up to ${a.peakHighVolts.toFixed(1)} V, other down to ${a.peakLowVolts.toFixed(1)} V`,
         );
+        emitEvent(this.ctx, {
+          type: 'neutral.started',
+          ts: a.startedTs,
+          maxSpreadVolts: a.maxSpreadVolts,
+        });
       } else if (transition.kind === 'ended' && this.activeNeutralEventId !== null) {
         const e = transition.episode;
         this.endNeutralEventStmt.run(
@@ -199,6 +217,12 @@ export class RealtimeCollector {
         this.ctx.log(
           `neutral: divergence ended — ${e.endedTs - e.startedTs}s, max spread ${e.maxSpreadVolts.toFixed(1)} V`,
         );
+        emitEvent(this.ctx, {
+          type: 'neutral.ended',
+          ts: e.endedTs,
+          maxSpreadVolts: e.maxSpreadVolts,
+          durationS: e.endedTs - e.startedTs,
+        });
       } else if (transition.kind === 'discarded' && this.activeNeutralEventId !== null) {
         this.deleteNeutralEventStmt.run(this.activeNeutralEventId);
         this.activeNeutralEventId = null;
@@ -228,6 +252,13 @@ export class RealtimeCollector {
         this.ctx.log(
           `brownout: started — leg ${a.leg + 1} at ${a.minVolts.toFixed(1)} V (nominal ${a.nominalVolts.toFixed(1)} V)`,
         );
+        emitEvent(this.ctx, {
+          type: 'brownout.started',
+          ts: a.startedTs,
+          leg: a.leg,
+          minVolts: a.minVolts,
+          nominalVolts: a.nominalVolts,
+        });
       } else if (transition.kind === 'ended' && this.activeVoltageEventId !== null) {
         const e = transition.event;
         this.endVoltageEventStmt.run(e.endedTs, e.leg, e.minVolts, e.nominalVolts, this.activeVoltageEventId);
@@ -235,6 +266,13 @@ export class RealtimeCollector {
         this.ctx.log(
           `brownout: ended — ${e.endedTs - e.startedTs}s, min ${e.minVolts.toFixed(1)} V on leg ${e.leg + 1}`,
         );
+        emitEvent(this.ctx, {
+          type: 'brownout.ended',
+          ts: e.endedTs,
+          leg: e.leg,
+          minVolts: e.minVolts,
+          durationS: e.endedTs - e.startedTs,
+        });
       } else if (transition.kind === 'discarded' && this.activeVoltageEventId !== null) {
         this.deleteVoltageEventStmt.run(this.activeVoltageEventId);
         this.activeVoltageEventId = null;
@@ -255,19 +293,38 @@ export class RealtimeCollector {
     }
   }
 
+  private readonly onSince = new Map<string, number>();
+  private readonly lastNames = new Map<string, string>();
+
   private detectTransitions(devices: LiveDevice[], ts: number): void {
-    const seenNow = new Map(devices.map((d) => [d.id, d.w] as const));
-    for (const [id, w] of seenNow) {
+    const seenNow = new Map(devices.map((d) => [d.id, d] as const));
+    for (const [id, d] of seenNow) this.lastNames.set(id, d.name);
+    for (const [id, d] of seenNow) {
       const wasOn = (this.prevDevices.get(id) ?? 0) > ON_THRESHOLD_W;
-      if (!wasOn && w > ON_THRESHOLD_W) this.recordEvent(id, ts, 'on', w);
+      if (!wasOn && d.w > ON_THRESHOLD_W) {
+        this.recordEvent(id, ts, 'on', d.w);
+        this.onSince.set(id, ts);
+        emitEvent(this.ctx, { type: 'device.on', ts, deviceId: id, name: d.name, w: d.w });
+      }
     }
     for (const [id, prevW] of this.prevDevices) {
       const wasOn = prevW > ON_THRESHOLD_W;
-      const isOn = (seenNow.get(id) ?? 0) > ON_THRESHOLD_W;
-      if (wasOn && !isOn) this.recordEvent(id, ts, 'off', seenNow.get(id) ?? null);
+      const isOn = (seenNow.get(id)?.w ?? 0) > ON_THRESHOLD_W;
+      if (wasOn && !isOn) {
+        this.recordEvent(id, ts, 'off', seenNow.get(id)?.w ?? null);
+        const since = this.onSince.get(id);
+        this.onSince.delete(id);
+        emitEvent(this.ctx, {
+          type: 'device.off',
+          ts,
+          deviceId: id,
+          name: this.lastNames.get(id) ?? id,
+          runtimeS: since !== undefined ? ts - since : null,
+        });
+      }
     }
     const next = new Map<string, number>();
-    for (const [id, w] of seenNow) next.set(id, w);
+    for (const [id, d] of seenNow) next.set(id, d.w);
     this.prevDevices = next;
   }
 

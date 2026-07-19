@@ -3,6 +3,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import type { SettingsResponse, StatusResponse } from '@sense/shared';
 import { get, put } from '../api/client.js';
 import { PageHeader } from '../components/PageHeader.js';
+import { AlertSettingsCard } from '../components/AlertSettingsCard.js';
 import { formatBytes, formatRelativeTime } from '../lib/format.js';
 
 export function Settings() {
@@ -86,6 +87,8 @@ export function Settings() {
           )}
         </div>
       </div>
+
+      <AlertSettingsCard />
 
       <div className="card space-y-3 p-4">
         <div className="flex items-center justify-between">

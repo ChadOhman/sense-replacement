@@ -19,6 +19,11 @@ data locally** so your history survives even if Sense's cloud goes dark.
   data, politely rate-limited).
 - **Cloud-dead fallback** — if Sense's API disappears, the app keeps serving
   all archived data, and daily summaries are derived from its own measurements.
+- **Power quality suite** — brownout, floating-neutral, and motor-stall
+  detection with a dedicated per-leg voltage dashboard (Sense Labs parity).
+- **Alerts & integrations** — ntfy/webhook notifications for detected events
+  and device-finished runs (configurable in Settings), Home Assistant via MQTT
+  discovery (`MQTT_URL`), and a Prometheus `/metrics` endpoint.
 
 > ⚠️ This uses Sense's **undocumented** cloud API (the monitor has no local
 > API). It may break without notice. Be a good citizen: the app keeps a single

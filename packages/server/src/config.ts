@@ -13,6 +13,9 @@ const envSchema = z.object({
     .default('0')
     .transform((v) => v === '1' || v.toLowerCase() === 'true'),
   REALTIME_MODE: z.enum(['persistent', 'duty-cycle']).default('persistent'),
+  MQTT_URL: z.string().default(''),
+  MQTT_USERNAME: z.string().default(''),
+  MQTT_PASSWORD: z.string().default(''),
 });
 
 export type Config = {
@@ -25,6 +28,9 @@ export type Config = {
   defaultRateCentsPerKwh: number;
   mock: boolean;
   realtimeMode: 'persistent' | 'duty-cycle';
+  mqttUrl: string;
+  mqttUsername: string;
+  mqttPassword: string;
 };
 
 export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
@@ -49,5 +55,8 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
     defaultRateCentsPerKwh: e.ELECTRICITY_RATE_CENTS_PER_KWH,
     mock: e.SENSE_MOCK,
     realtimeMode: e.REALTIME_MODE,
+    mqttUrl: e.MQTT_URL,
+    mqttUsername: e.MQTT_USERNAME,
+    mqttPassword: e.MQTT_PASSWORD,
   };
 }

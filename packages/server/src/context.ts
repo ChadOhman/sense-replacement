@@ -1,5 +1,9 @@
-import type { AppStatus, BackfillStatus, CollectorStatus, Settings } from '@sense/shared';
+import type { EventEmitter } from 'node:events';
+import type { AlertSettings, AppStatus, BackfillStatus, CollectorStatus, Settings } from '@sense/shared';
+import { DEFAULT_ALERT_SETTINGS } from '@sense/shared';
 import type { Config } from './config.js';
+import type { AppEvent } from './alerts/events.js';
+import { EVENT_NAME } from './alerts/events.js';
 import type { Db, KvStore } from './db/index.js';
 import type { SenseClient } from './sense/client.js';
 import type { LiveRingBuffer } from './lib/ringbuffer.js';
@@ -20,7 +24,32 @@ export interface AppContext {
   getActiveNeutralEpisode: () => AppStatus['activeNeutralEpisode'];
   /** Assigned by startCollectors; null until collectors run. */
   getActiveStall: () => AppStatus['activeStall'];
+  /** In-process app event bus (see alerts/events.ts). */
+  events: EventEmitter;
   log: (msg: string) => void;
+}
+
+export function emitEvent(ctx: Pick<AppContext, 'events'>, event: AppEvent): void {
+  ctx.events.emit(EVENT_NAME, event);
+}
+
+export function onEvent(ctx: Pick<AppContext, 'events'>, listener: (event: AppEvent) => void): void {
+  ctx.events.on(EVENT_NAME, listener);
+}
+
+const ALERT_SETTINGS_KEY = 'settings.alerts';
+
+export function getAlertSettings(ctx: Pick<AppContext, 'kv'>): AlertSettings {
+  const stored = ctx.kv.getJson<Partial<AlertSettings>>(ALERT_SETTINGS_KEY);
+  return {
+    ...DEFAULT_ALERT_SETTINGS,
+    ...stored,
+    enabled: { ...DEFAULT_ALERT_SETTINGS.enabled, ...stored?.enabled },
+  };
+}
+
+export function saveAlertSettings(ctx: Pick<AppContext, 'kv'>, settings: AlertSettings): void {
+  ctx.kv.setJson(ALERT_SETTINGS_KEY, settings);
 }
 
 const SETTINGS_KEY = 'settings';

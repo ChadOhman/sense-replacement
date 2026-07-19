@@ -161,3 +161,43 @@ export interface Settings {
   rateCentsPerKwh: number;
   currency: string;
 }
+
+/** Coarse alert categories the user can toggle. */
+export type AlertKind =
+  | 'brownout'
+  | 'neutral'
+  | 'stall'
+  | 'device_finished'
+  | 'alwayson_creep'
+  | 'device_anomaly';
+
+export interface AlertSettings {
+  /** Full ntfy topic URL, e.g. https://ntfy.sh/my-secret-topic. Empty = off. */
+  ntfyUrl: string;
+  /** Generic JSON webhook URL. Empty = off. */
+  webhookUrl: string;
+  enabled: Record<AlertKind, boolean>;
+  /** Local-time quiet hours [startHour, endHour) during which only
+   *  high-priority alerts send. null = no quiet hours. */
+  quietHours: { startHour: number; endHour: number } | null;
+  /** Devices whose completed runs trigger a "finished" notification. */
+  finishedDeviceIds: string[];
+  /** Minimum runtime (seconds) for a run to count as "finished". */
+  finishedMinRuntimeS: number;
+}
+
+export const DEFAULT_ALERT_SETTINGS: AlertSettings = {
+  ntfyUrl: '',
+  webhookUrl: '',
+  enabled: {
+    brownout: true,
+    neutral: true,
+    stall: true,
+    device_finished: false,
+    alwayson_creep: true,
+    device_anomaly: true,
+  },
+  quietHours: null,
+  finishedDeviceIds: [],
+  finishedMinRuntimeS: 300,
+};

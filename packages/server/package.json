@@ -16,6 +16,7 @@
     "@sense/shared": "workspace:*",
     "better-sqlite3": "^11.10.0",
     "fastify": "^5.3.3",
+    "mqtt": "^5.15.2",
     "ws": "^8.18.2",
     "zod": "^3.25.0"
   },
