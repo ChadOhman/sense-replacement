@@ -47,6 +47,7 @@ const ctx: AppContext = {
   getActiveBrownout: () => null,
   getActiveNeutralEpisode: () => null,
   getActiveStall: () => null,
+  applyDetectionSettings: () => undefined,
   events: new EventEmitter(),
   costs: undefined as unknown as AppContext['costs'], // assigned just below
   log,

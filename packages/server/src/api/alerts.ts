@@ -1,7 +1,17 @@
 import type { FastifyInstance } from 'fastify';
 import { z } from 'zod';
-import type { AlertSettings } from '@sense/shared';
-import { getAlertSettings, saveAlertSettings, type AppContext } from '../context.js';
+import type { AlertSettings, DetectionSettings } from '@sense/shared';
+import {
+  getAlertSettings,
+  getDetectionSettings,
+  saveAlertSettings,
+  saveDetectionSettings,
+  type AppContext,
+} from '../context.js';
+
+const detectionSettingsSchema = z.object({
+  stallMaxDutyCycle: z.number().min(0.05).max(0.9),
+});
 
 const alertSettingsSchema = z.object({
   ntfyUrl: z.string().max(500),
@@ -29,6 +39,16 @@ export function registerAlertRoutes(app: FastifyInstance, ctx: AppContext): void
     if (!parsed.success) return reply.status(400).send({ error: parsed.error.message });
     saveAlertSettings(ctx, parsed.data);
     return getAlertSettings(ctx);
+  });
+
+  app.get('/detection/settings', async (): Promise<DetectionSettings> => getDetectionSettings(ctx));
+
+  app.put('/detection/settings', async (req, reply): Promise<DetectionSettings | void> => {
+    const parsed = detectionSettingsSchema.safeParse(req.body);
+    if (!parsed.success) return reply.status(400).send({ error: parsed.error.message });
+    saveDetectionSettings(ctx, parsed.data);
+    ctx.applyDetectionSettings();
+    return getDetectionSettings(ctx);
   });
 
   /** Fires a test notification through the configured channels. */

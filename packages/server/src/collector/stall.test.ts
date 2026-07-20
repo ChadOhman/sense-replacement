@@ -233,4 +233,20 @@ describe('MotorStallDetector', () => {
     expect(invalidated).toBe(true);
     expect(det.active).toBeNull();
   });
+  it('setMaxDutyCycle retunes a live detector', () => {
+    const det = new MotorStallDetector();
+    det.setMaxDutyCycle(0.6);
+    expect(det.sample(0, 500)).toBeNull();
+
+    // Toaster-like cycling (duty ~37%) now flags under the loosened 60% limit.
+    let ts = 1;
+    let detected = false;
+    for (let i = 0; i < 4 && !detected; i++) {
+      det.sample(ts, 1800);
+      const t = det.sample(ts + 15, 500);
+      if (t?.kind === 'detected') detected = true;
+      ts += 40;
+    }
+    expect(detected).toBe(true);
+  });
 });

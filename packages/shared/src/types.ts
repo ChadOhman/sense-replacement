@@ -222,6 +222,18 @@ export interface BillingSettings {
   billingCycleDay: number;
 }
 
+/** Tunable detection thresholds. */
+export interface DetectionSettings {
+  /** Motor stall: max fraction of a spike cluster's span the spikes may be
+   *  ON in total. Above this the pattern is treated as a thermostat-cycling
+   *  appliance (toaster oven, space heater), not a stall. Default 0.25. */
+  stallMaxDutyCycle: number;
+}
+
+export const DEFAULT_DETECTION_SETTINGS: DetectionSettings = {
+  stallMaxDutyCycle: 0.25,
+};
+
 /** Coarse alert categories the user can toggle. */
 export type AlertKind =
   | 'brownout'

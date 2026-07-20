@@ -105,7 +105,7 @@ export class MotorStallDetector {
   private readonly magnitudeTolerance: number;
   private readonly retryWindowS: number;
   private readonly spikesToFlag: number;
-  private readonly maxDutyCycle: number;
+  private maxDutyCycle: number;
 
   /** EMA baseline; null until the first sample seeds it. */
   private baseline: number | null = null;
@@ -127,6 +127,11 @@ export class MotorStallDetector {
   /** Non-null only once a cluster has been flagged ('detected' has fired for it). */
   get active(): ActiveStall | null {
     return this.clusterFlagged ? this.cluster : null;
+  }
+
+  /** Runtime tuning: applies from the next duty-cycle evaluation onward. */
+  setMaxDutyCycle(value: number): void {
+    this.maxDutyCycle = value;
   }
 
   /**

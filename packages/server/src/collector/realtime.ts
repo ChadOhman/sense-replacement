@@ -1,4 +1,4 @@
-import { emitEvent, type AppContext } from '../context.js';
+import { emitEvent, getDetectionSettings, type AppContext } from '../context.js';
 import type { LiveDevice, LiveFrame } from '@sense/shared';
 import type { SenseRealtimePayload } from '../sense/types.js';
 import { aggregateFrames, aggregateLegVoltages, bucketStart } from './rollup.js';
@@ -41,7 +41,7 @@ export class RealtimeCollector {
     return this.neutral.active;
   }
 
-  private readonly stalls = new MotorStallDetector();
+  private readonly stalls: MotorStallDetector;
   private activeStallEventId: number | bigint | null = null;
   private readonly insertStallEventStmt;
   private readonly updateStallEventStmt;
@@ -50,7 +50,14 @@ export class RealtimeCollector {
     return this.stalls.active;
   }
 
+  applyDetectionSettings(): void {
+    this.stalls.setMaxDutyCycle(getDetectionSettings(this.ctx).stallMaxDutyCycle);
+  }
+
   constructor(private readonly ctx: AppContext) {
+    this.stalls = new MotorStallDetector({
+      maxDutyCycle: getDetectionSettings(ctx).stallMaxDutyCycle,
+    });
     this.insertDeviceStmt = ctx.db.prepare(
       `INSERT OR IGNORE INTO devices (id, name, icon, type, tags_json, is_guess, revoked, first_seen, last_seen)
        VALUES (?, ?, ?, NULL, '{}', 0, 0, ?, ?)`,

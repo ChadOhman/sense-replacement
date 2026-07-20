@@ -5,9 +5,10 @@ import type {
   BackfillStatus,
   BillingSettings,
   CollectorStatus,
+  DetectionSettings,
   Settings,
 } from '@sense/shared';
-import { DEFAULT_ALERT_SETTINGS } from '@sense/shared';
+import { DEFAULT_ALERT_SETTINGS, DEFAULT_DETECTION_SETTINGS } from '@sense/shared';
 import type { CostEngine } from './lib/costs.js';
 import type { Config } from './config.js';
 import type { AppEvent } from './alerts/events.js';
@@ -32,6 +33,9 @@ export interface AppContext {
   getActiveNeutralEpisode: () => AppStatus['activeNeutralEpisode'];
   /** Assigned by startCollectors; null until collectors run. */
   getActiveStall: () => AppStatus['activeStall'];
+  /** Pushes the current detection settings into the live detectors.
+   *  Assigned by startCollectors; no-op until collectors run. */
+  applyDetectionSettings: () => void;
   /** In-process app event bus (see alerts/events.ts). */
   events: EventEmitter;
   /** Rate-aware cost calculations (lib/costs.ts); assigned in index.ts. */
@@ -95,4 +99,17 @@ export function getBillingSettings(ctx: Pick<AppContext, 'kv' | 'config'>): Bill
 
 export function saveBillingSettings(ctx: Pick<AppContext, 'kv'>, settings: BillingSettings): void {
   ctx.kv.setJson(BILLING_KEY, settings);
+}
+
+const DETECTION_KEY = 'settings.detection';
+
+export function getDetectionSettings(ctx: Pick<AppContext, 'kv'>): DetectionSettings {
+  return {
+    ...DEFAULT_DETECTION_SETTINGS,
+    ...ctx.kv.getJson<Partial<DetectionSettings>>(DETECTION_KEY),
+  };
+}
+
+export function saveDetectionSettings(ctx: Pick<AppContext, 'kv'>, settings: DetectionSettings): void {
+  ctx.kv.setJson(DETECTION_KEY, settings);
 }

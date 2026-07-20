@@ -2,6 +2,7 @@ import type {
   AppStatus,
   BillingSettings,
   CycleReport,
+  DetectionSettings,
   Device,
   DeviceAnomalyInfo,
   DeviceEvent,
@@ -63,6 +64,9 @@ export interface BillingResponse {
 
 /** GET/PUT /api/billing/settings */
 export type BillingSettingsResponse = BillingSettings;
+
+/** GET/PUT /api/detection/settings */
+export type DetectionSettingsResponse = DetectionSettings;
 
 /** GET /api/devices */
 export interface DeviceListItem extends Device {

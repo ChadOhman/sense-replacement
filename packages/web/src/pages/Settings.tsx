@@ -5,6 +5,7 @@ import { PageHeader } from '../components/PageHeader.js';
 import { AlertSettingsCard } from '../components/AlertSettingsCard.js';
 import { RatePlanCard } from '../components/RatePlanCard.js';
 import { ExportCard } from '../components/ExportCard.js';
+import { DetectionCard } from '../components/DetectionCard.js';
 import { formatBytes, formatRelativeTime } from '../lib/format.js';
 
 export function Settings() {
@@ -23,6 +24,8 @@ export function Settings() {
       <RatePlanCard />
 
       <AlertSettingsCard />
+
+      <DetectionCard />
 
       <ExportCard />
 

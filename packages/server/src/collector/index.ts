@@ -42,6 +42,7 @@ export function startCollectors(ctx: AppContext): {
     const a = realtimeCollector.activeStall;
     return a ? { startedTs: a.startedTs, spikeCount: a.spikeCount, avgSpikeW: a.avgSpikeW } : null;
   };
+  ctx.applyDetectionSettings = () => realtimeCollector.applyDetectionSettings();
   ctx.sense.startRealtime();
 
   return {
