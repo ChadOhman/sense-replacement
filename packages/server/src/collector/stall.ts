@@ -12,6 +12,15 @@
  * similar-magnitude spikes minutes apart. This detector clusters
  * short-lived power spikes by magnitude and cadence, and flags a
  * cluster once enough of them accumulate.
+ *
+ * Thermostat-cycling resistive appliances (toaster ovens, space heaters,
+ * irons) produce a deceptively similar pattern: repeated similar-magnitude
+ * spikes. The discriminator is duty cycle — a stalling motor is on for a
+ * few seconds per attempt with long cooling gaps (on-time well under a
+ * quarter of the cluster's span), while an element holding temperature is
+ * on a large fraction of the time. Clusters whose cumulative spike
+ * on-time exceeds maxDutyCycle of their span are treated as appliance
+ * cycling and never flagged (or are invalidated if already flagged).
  */
 
 export interface StallDetectorOptions {
@@ -25,6 +34,9 @@ export interface StallDetectorOptions {
   retryWindowS?: number;
   /** Number of clustered spikes at which a cluster becomes a stall event. Default 3. */
   spikesToFlag?: number;
+  /** Max fraction of the cluster's span the spikes may be ON in total.
+   *  Above this it's a thermostat-cycling appliance, not a stall. Default 0.25. */
+  maxDutyCycle?: number;
 }
 
 export interface ActiveStall {
@@ -36,6 +48,8 @@ export interface ActiveStall {
   /** Running average of spike magnitudes (above baseline). */
   avgSpikeW: number;
   maxSpikeW: number;
+  /** Cumulative seconds the cluster's spikes were on (duty-cycle guard). */
+  onTimeS: number;
 }
 
 export interface CompletedStall extends ActiveStall {
@@ -47,10 +61,12 @@ export type StallTransition =
   | { kind: 'detected'; active: ActiveStall } // cluster just reached spikesToFlag
   | { kind: 'spike'; active: ActiveStall } // an already-flagged cluster got another spike (caller updates the row)
   | { kind: 'ended'; event: CompletedStall } // a flagged cluster timed out (closed)
+  | { kind: 'invalidated' } // a flagged cluster turned out to be appliance cycling (caller removes the row)
   | null;
 
 const DEFAULT_MIN_SPIKE_W = 800;
-const DEFAULT_MAX_SPIKE_DURATION_S = 30;
+const DEFAULT_MAX_SPIKE_DURATION_S = 20;
+const DEFAULT_MAX_DUTY_CYCLE = 0.25;
 const DEFAULT_MAGNITUDE_TOLERANCE = 0.3;
 const DEFAULT_RETRY_WINDOW_S = 300;
 const DEFAULT_SPIKES_TO_FLAG = 3;
@@ -89,6 +105,7 @@ export class MotorStallDetector {
   private readonly magnitudeTolerance: number;
   private readonly retryWindowS: number;
   private readonly spikesToFlag: number;
+  private readonly maxDutyCycle: number;
 
   /** EMA baseline; null until the first sample seeds it. */
   private baseline: number | null = null;
@@ -104,6 +121,7 @@ export class MotorStallDetector {
     this.magnitudeTolerance = opts.magnitudeTolerance ?? DEFAULT_MAGNITUDE_TOLERANCE;
     this.retryWindowS = opts.retryWindowS ?? DEFAULT_RETRY_WINDOW_S;
     this.spikesToFlag = opts.spikesToFlag ?? DEFAULT_SPIKES_TO_FLAG;
+    this.maxDutyCycle = opts.maxDutyCycle ?? DEFAULT_MAX_DUTY_CYCLE;
   }
 
   /** Non-null only once a cluster has been flagged ('detected' has fired for it). */
@@ -238,6 +256,7 @@ export class MotorStallDetector {
       spikeCount: 1,
       avgSpikeW: candidate.magnitude,
       maxSpikeW: candidate.magnitude,
+      onTimeS: candidate.endTs - candidate.startTs,
     };
     this.clusterFlagged = false;
   }
@@ -249,18 +268,36 @@ export class MotorStallDetector {
     c.maxSpikeW = Math.max(c.maxSpikeW, candidate.magnitude);
     c.spikeCount = newCount;
     c.lastSpikeTs = candidate.endTs;
+    c.onTimeS += candidate.endTs - candidate.startTs;
   }
 
-  /** Emits 'detected' the moment a cluster reaches spikesToFlag, 'spike' on every match thereafter. */
+  /** Fraction of the cluster's span its spikes have been on. */
+  private dutyCycle(c: ActiveStall): number {
+    const span = c.lastSpikeTs - c.startedTs;
+    return span > 0 ? c.onTimeS / span : 1;
+  }
+
+  /** Emits 'detected' the moment a cluster reaches spikesToFlag with a
+   *  stall-like duty cycle, 'spike' on every match thereafter, and
+   *  'invalidated' if a flagged cluster's duty cycle reveals it as a
+   *  thermostat-cycling appliance after all. */
   private checkFlag(): StallTransition {
     const c = this.cluster;
     if (c === null) return null;
     if (!this.clusterFlagged) {
-      if (c.spikeCount >= this.spikesToFlag) {
+      // High duty cycle = an element holding temperature, not a motor
+      // retrying. Don't flag; the cluster keeps absorbing matching spikes
+      // (so they can't seed a fresh cluster) and closes silently.
+      if (c.spikeCount >= this.spikesToFlag && this.dutyCycle(c) <= this.maxDutyCycle) {
         this.clusterFlagged = true;
         return { kind: 'detected', active: c };
       }
       return null;
+    }
+    if (this.dutyCycle(c) > this.maxDutyCycle) {
+      this.cluster = null;
+      this.clusterFlagged = false;
+      return { kind: 'invalidated' };
     }
     return { kind: 'spike', active: c };
   }

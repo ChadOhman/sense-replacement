@@ -53,15 +53,15 @@ describe('MotorStallDetector', () => {
     const detected = det.sample(76, 500); // spike 3 ends, duration 5, mag 1800 -> cluster count 3, flags
     expect(detected).toEqual({
       kind: 'detected',
-      active: { startedTs: 1, lastSpikeTs: 76, spikeCount: 3, avgSpikeW: 1800, maxSpikeW: 1800 },
+      active: { startedTs: 1, lastSpikeTs: 76, spikeCount: 3, avgSpikeW: 1800, maxSpikeW: 1800, onTimeS: 15 },
     });
-    expect(det.active).toEqual({ startedTs: 1, lastSpikeTs: 76, spikeCount: 3, avgSpikeW: 1800, maxSpikeW: 1800 });
+    expect(det.active).toEqual({ startedTs: 1, lastSpikeTs: 76, spikeCount: 3, avgSpikeW: 1800, maxSpikeW: 1800, onTimeS: 15 });
 
     expect(det.sample(106, 2300)).toBeNull(); // spike 4 starts
     const spike4 = det.sample(111, 500); // spike 4 ends, duration 5, mag 1800 -> cluster count 4
     expect(spike4).toEqual({
       kind: 'spike',
-      active: { startedTs: 1, lastSpikeTs: 111, spikeCount: 4, avgSpikeW: 1800, maxSpikeW: 1800 },
+      active: { startedTs: 1, lastSpikeTs: 111, spikeCount: 4, avgSpikeW: 1800, maxSpikeW: 1800, onTimeS: 20 },
     });
 
     // Advance well past the retry window (300s) with a quiet baseline sample.
@@ -74,6 +74,7 @@ describe('MotorStallDetector', () => {
         spikeCount: 4,
         avgSpikeW: 1800,
         maxSpikeW: 1800,
+        onTimeS: 20,
         endedTs: 111,
       },
     });
@@ -183,9 +184,53 @@ describe('MotorStallDetector', () => {
     const detected = det.sample(76, 500); // count 3 -> detected
     expect(detected).toEqual({
       kind: 'detected',
-      active: { startedTs: 1, lastSpikeTs: 76, spikeCount: 3, avgSpikeW: 1800, maxSpikeW: 1800 },
+      active: { startedTs: 1, lastSpikeTs: 76, spikeCount: 3, avgSpikeW: 1800, maxSpikeW: 1800, onTimeS: 15 },
     });
     expect(det.active).not.toBeNull();
     expect(det.active!.spikeCount).toBe(3);
+  });
+
+  it('never flags a thermostat-cycling appliance (toaster oven: 15s on, 25s off)', () => {
+    const det = new MotorStallDetector();
+    expect(det.sample(0, 500)).toBeNull();
+
+    // Eight heating cycles: on for 15s at +1300W, off for 25s. Duty ~37% —
+    // well above the 25% stall ceiling, so no cluster ever flags.
+    let ts = 1;
+    for (let i = 0; i < 8; i++) {
+      expect(det.sample(ts, 1800)).toBeNull(); // element on
+      expect(det.sample(ts + 15, 500)).toBeNull(); // element off -> candidate
+      expect(det.active).toBeNull();
+      ts += 40;
+    }
+    // Quiet period closes the never-flagged cluster silently.
+    expect(det.sample(ts + 301, 500)).toBeNull();
+    expect(det.active).toBeNull();
+  });
+
+  it('invalidates a flagged cluster when continued spikes reveal appliance-like duty', () => {
+    const det = new MotorStallDetector();
+    expect(det.sample(0, 500)).toBeNull();
+
+    // Three sparse 5s spikes 60s apart: duty 15/135 ≈ 11% -> flags.
+    expect(det.sample(1, 2300)).toBeNull();
+    expect(det.sample(6, 500)).toBeNull();
+    expect(det.sample(66, 2300)).toBeNull();
+    expect(det.sample(71, 500)).toBeNull();
+    expect(det.sample(131, 2300)).toBeNull();
+    expect(det.sample(136, 500)!.kind).toBe('detected');
+
+    // Then dense 15s-on/20s-off matching spikes drive duty above 25%.
+    let ts = 156;
+    let invalidated = false;
+    for (let i = 0; i < 6 && !invalidated; i++) {
+      expect(det.sample(ts, 2300)).toBeNull();
+      const t = det.sample(ts + 15, 500);
+      if (t?.kind === 'invalidated') invalidated = true;
+      else expect(t?.kind).toBe('spike');
+      ts += 35;
+    }
+    expect(invalidated).toBe(true);
+    expect(det.active).toBeNull();
   });
 });

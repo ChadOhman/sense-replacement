@@ -179,6 +179,10 @@ export class RealtimeCollector {
           avgSpikeW: e.avgSpikeW,
           maxSpikeW: e.maxSpikeW,
         });
+      } else if (transition.kind === 'invalidated' && this.activeStallEventId !== null) {
+        this.ctx.db.prepare('DELETE FROM stall_events WHERE id = ?').run(this.activeStallEventId);
+        this.activeStallEventId = null;
+        this.ctx.log('stall: cluster invalidated — duty cycle reveals appliance cycling, event removed');
       }
     } catch (err) {
       this.ctx.log(`stall tracking failed: ${err instanceof Error ? err.message : String(err)}`);
