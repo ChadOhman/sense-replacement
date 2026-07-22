@@ -6,6 +6,7 @@ import type {
   BillingSettings,
   CollectorStatus,
   DetectionSettings,
+  NilmLiveState,
   Settings,
 } from '@sense/shared';
 import { DEFAULT_ALERT_SETTINGS, DEFAULT_DETECTION_SETTINGS } from '@sense/shared';
@@ -36,6 +37,14 @@ export interface AppContext {
   /** Pushes the current detection settings into the live detectors.
    *  Assigned by startCollectors; no-op until collectors run. */
   applyDetectionSettings: () => void;
+  /** Latest NILM live state; assigned by startCollectors, null until then. */
+  getNilmState: () => NilmLiveState | null;
+  /** Hot-reloads NILM cluster/device profiles into the live matcher.
+   *  Assigned by startCollectors; no-op until collectors run. */
+  reloadNilmProfiles: () => void;
+  /** Runs a NILM clustering pass now (labeling-UI "re-cluster" button).
+   *  Assigned by startCollectors; throws until collectors run. */
+  runNilmClustering: () => { assigned: number; newClusters: number };
   /** In-process app event bus (see alerts/events.ts). */
   events: EventEmitter;
   /** Rate-aware cost calculations (lib/costs.ts); assigned in index.ts. */

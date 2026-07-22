@@ -41,11 +41,13 @@ fanned out to any number of clients). Server → client JSON messages
 | kind | payload | when |
 | --- | --- | --- |
 | `history` | `points: PowerPoint[]` — last hour at 30 s resolution | once, on connect |
-| `frame` | `frame: LiveFrame` — `{ts, w, solarW, volts, voltageLegs[], hz, devices[]}` | ~1 Hz |
+| `frame` | `frame: LiveFrame` — `{ts, w, solarW, volts, voltageLegs[], hz, devices[], nilm?}` | ~1 Hz |
 | `status` | `cloudConnected: boolean` | on upstream connect/disconnect |
 
 `devices[]` lists currently-on detected devices with live watts. `solarW` is
-`null` on monitors without solar CTs.
+`null` on monitors without solar CTs. `nilm` carries the local-detection
+state (`{baselineW, unknownW, devices[]}` — see the NILM section below);
+absent until the engine has processed a frame.
 
 ### `GET /api/summary`
 Today/week/month kWh and rate-aware cost, `alwaysOnW`, `nowW`,
@@ -114,6 +116,38 @@ Motor stall clusters (≥3 similar-magnitude failed-start spikes within
 ### `GET /api/outages?from=&to=`
 Gaps ≥5 min in the power archive — a power outage, or the collector being
 offline.
+
+## Local detection (NILM)
+
+Cloud-independent device detection: >trigger-watt transients on the 1 Hz
+stream are captured as 20-sample delta-power waveforms, clustered (k-means,
+hourly + on demand), labeled by the user, then matched live.
+
+### `GET /api/nilm/status`
+Event/cluster/device counts, `unclusteredCount`, `lastClusterRunTs`, and the
+live `{baselineW, unknownW, devices[]}` snapshot.
+
+### `GET /api/nilm/clusters`
+All clusters with their profile waveform, direction (`on`/`off`), size,
+`deviceId` (null = unlabeled), `lastSeenTs`, and `occurrences7d`.
+
+### `PUT /api/nilm/clusters/:id`
+Body `{deviceId: number | null}` — label a cluster as a device (or unlabel
+with `null`). Takes effect in the live matcher immediately.
+
+### `POST /api/nilm/recluster`
+Runs a clustering pass over unassigned events now; returns
+`{assigned, newClusters}`. Also runs automatically every hour.
+
+### `GET /api/nilm/devices` · `POST /api/nilm/devices` · `PUT /api/nilm/devices/:id` · `DELETE /api/nilm/devices/:id`
+NILM device CRUD. Body fields: `name`, `icon`, `estW` (manual wattage
+override; null = use each matched event's magnitude), `offDelayS`
+(auto-emit OFF N seconds after ON, for loads with unrecognizable off
+transients like fridges), `maxMatchDistance` (match-strictness override).
+Deleting a device detaches its clusters back to unlabeled.
+
+Detection thresholds (`nilmTriggerW`, `nilmClusterSplitDistance`) live in
+`GET/PUT /api/detection/settings` alongside the stall duty-cycle limit.
 
 ## Billing
 
@@ -191,3 +225,8 @@ With `MQTT_URL` set, the app publishes Home Assistant discovery configs
 | `sense/energy_today` | kWh (retained) | 2 s |
 | `sense/device/{id}/power`, `sense/device/{id}/state` | watts, `ON`/`OFF` | on change |
 | `sense/alert/{brownout,neutral,stall}` | `ON`/`OFF` (retained) | on change |
+| `sense/nilm/unknown_power`, `sense/nilm/baseline_power` | watts | 2 s |
+| `sense/nilm/device/{id}/power`, `sense/nilm/device/{id}/state` | watts, `ON`/`OFF` | on change |
+
+NILM entities use `sense_nilm_...` unique ids (local integer device ids), so
+they never collide with the cloud-device entities.

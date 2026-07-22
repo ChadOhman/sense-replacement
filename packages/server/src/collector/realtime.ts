@@ -1,6 +1,7 @@
 import { emitEvent, getDetectionSettings, type AppContext } from '../context.js';
-import type { LiveDevice, LiveFrame } from '@sense/shared';
+import type { LiveDevice, LiveFrame, NilmLiveState } from '@sense/shared';
 import type { SenseRealtimePayload } from '../sense/types.js';
+import type { NilmEngine } from '../nilm/engine.js';
 import { aggregateFrames, aggregateLegVoltages, bucketStart } from './rollup.js';
 import { BrownoutDetector, type ActiveBrownout } from './brownout.js';
 import { FloatingNeutralDetector, type ActiveNeutralEpisode } from './neutral.js';
@@ -52,9 +53,13 @@ export class RealtimeCollector {
 
   applyDetectionSettings(): void {
     this.stalls.setMaxDutyCycle(getDetectionSettings(this.ctx).stallMaxDutyCycle);
+    this.nilm.applySettings();
   }
 
-  constructor(private readonly ctx: AppContext) {
+  constructor(
+    private readonly ctx: AppContext,
+    private readonly nilm: NilmEngine,
+  ) {
     this.stalls = new MotorStallDetector({
       maxDutyCycle: getDetectionSettings(ctx).stallMaxDutyCycle,
     });
@@ -131,6 +136,14 @@ export class RealtimeCollector {
       icon: d.icon ?? null,
       w: d.w,
     }));
+    // NILM runs before the frame is built so its state rides the frame into
+    // the ring buffer (and from there to the WS relay, MQTT, and metrics).
+    let nilm: NilmLiveState | undefined;
+    try {
+      nilm = this.nilm.onFrame(ts, payload.w);
+    } catch (err) {
+      this.ctx.log(`nilm tracking failed: ${err instanceof Error ? err.message : String(err)}`);
+    }
     const frame: LiveFrame = {
       ts,
       w: payload.w,
@@ -139,6 +152,7 @@ export class RealtimeCollector {
       voltageLegs: payload.voltage ?? [],
       hz: payload.hz ?? null,
       devices,
+      nilm,
     };
     if (payload.solar_w !== undefined && this.ctx.kv.get('solar.detected') === null) {
       this.ctx.kv.set('solar.detected', '1');

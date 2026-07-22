@@ -56,6 +56,21 @@ export function compact300to3600(db: Db, now: number): void {
   compact(db, 300, 3600, COMPACT_300_AGE_S, now);
 }
 
+const RETAIN_NILM_UNLABELED_S = 90 * 86400;
+
+/** Old NILM events whose cluster never got a device label (or no cluster at
+ *  all) are noise; labeled clusters keep their events for the UI's history.
+ *  Cluster profiles are stored on the cluster row, so pruning members never
+ *  degrades matching. */
+export function pruneOldNilmEvents(db: Db, now: number): void {
+  db.prepare(
+    `DELETE FROM nilm_events WHERE ts < ? AND (
+       cluster_id IS NULL
+       OR cluster_id IN (SELECT id FROM nilm_clusters WHERE device_id IS NULL)
+     )`,
+  ).run(now - RETAIN_NILM_UNLABELED_S);
+}
+
 export function pruneOldRollups(db: Db, now: number): void {
   // Safe without a compaction-completeness join: compaction runs every 5 min
   // and covers rows after 1h/1d, while deletion cutoffs are 7d/2y — every row
@@ -74,6 +89,7 @@ export function registerRetentionJob(ctx: AppContext, scheduler: Scheduler): voi
     compact30to300(ctx.db, now);
     compact300to3600(ctx.db, now);
     pruneOldRollups(ctx.db, now);
+    pruneOldNilmEvents(ctx.db, now);
     ctx.db.pragma('incremental_vacuum(200)');
   });
 }

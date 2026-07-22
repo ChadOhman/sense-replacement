@@ -31,6 +31,56 @@ export interface LiveFrame {
   voltageLegs: number[]; // per-leg RMS voltage (empty if unknown)
   hz: number | null;
   devices: LiveDevice[];
+  /** Local NILM state; absent on frames from before the engine warmed up. */
+  nilm?: NilmLiveState;
+}
+
+/** A locally detected (NILM) device — labeled by the user from clustered
+ *  transient waveforms. Entirely separate from the cloud `Device` list. */
+export interface NilmDevice {
+  id: number;
+  name: string;
+  icon: string | null;
+  /** Manual wattage override; null = use the matched event's magnitude. */
+  estW: number | null;
+  /** Auto-emit OFF this many seconds after ON; null = rely on off-events. */
+  offDelayS: number | null;
+  /** Match-radius override for this device's clusters; null = per-cluster radius. */
+  maxMatchDistance: number | null;
+  createdTs: number;
+}
+
+/** A cluster of similar captured transient waveforms. */
+export interface NilmCluster {
+  id: number;
+  direction: 'on' | 'off';
+  /** Smoothed median waveform: per-second watt deltas. */
+  profile: number[];
+  radius: number;
+  size: number;
+  deviceId: number | null;
+  /** ts of the most recent member event; null for an empty cluster. */
+  lastSeenTs: number | null;
+  occurrences7d: number;
+}
+
+/** A NILM device currently considered ON. */
+export interface NilmLiveDevice {
+  id: number;
+  name: string;
+  /** Estimated draw while on (watts). */
+  estW: number;
+  sinceTs: number;
+}
+
+/** Live NILM accounting embedded in each frame. */
+export interface NilmLiveState {
+  /** Rolling always-on floor (trailing-hour minimum); null until warmed up. */
+  baselineW: number | null;
+  /** total − baseline − Σ on-device estimates; null until baseline exists. */
+  unknownW: number | null;
+  /** Devices the live matcher currently considers ON. */
+  devices: NilmLiveDevice[];
 }
 
 /** A floating-neutral divergence episode: the two legs moved in opposite
@@ -228,10 +278,18 @@ export interface DetectionSettings {
    *  ON in total. Above this the pattern is treated as a thermostat-cycling
    *  appliance (toaster oven, space heater), not a stall. Default 0.25. */
   stallMaxDutyCycle: number;
+  /** NILM: min per-second power change (watts) that starts an event capture.
+   *  Below ~20 W household noise triggers constantly. Default 20. */
+  nilmTriggerW: number;
+  /** NILM: clustering stops splitting once cluster profiles get closer than
+   *  this Euclidean distance (watt-space). Default 200. */
+  nilmClusterSplitDistance: number;
 }
 
 export const DEFAULT_DETECTION_SETTINGS: DetectionSettings = {
   stallMaxDutyCycle: 0.25,
+  nilmTriggerW: 20,
+  nilmClusterSplitDistance: 200,
 };
 
 /** Coarse alert categories the user can toggle. */

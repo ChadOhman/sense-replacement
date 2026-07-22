@@ -8,6 +8,9 @@ import type {
   DeviceEvent,
   DeviceUsage,
   LiveFrame,
+  NilmCluster,
+  NilmDevice,
+  NilmLiveState,
   PowerPoint,
   Settings,
   NeutralEvent,
@@ -182,6 +185,34 @@ export interface ReportsResponse {
 
 /** GET/PUT /api/settings */
 export type SettingsResponse = Settings;
+
+/** GET /api/nilm/status */
+export interface NilmStatusResponse {
+  eventCount: number;
+  unclusteredCount: number;
+  clusterCount: number;
+  deviceCount: number;
+  /** Epoch seconds of the last clustering pass; null if never run. */
+  lastClusterRunTs: number | null;
+  /** Live snapshot; null before the engine has processed a frame. */
+  live: NilmLiveState | null;
+}
+
+/** GET /api/nilm/clusters */
+export interface NilmClustersResponse {
+  clusters: NilmCluster[];
+}
+
+/** GET/POST /api/nilm/devices */
+export interface NilmDevicesResponse {
+  devices: NilmDevice[];
+}
+
+/** POST /api/nilm/recluster */
+export interface NilmReclusterResponse {
+  assigned: number;
+  newClusters: number;
+}
 
 /** GET /api/setup/status */
 export interface SetupStatusResponse {

@@ -152,6 +152,13 @@ export function Live() {
             }
           />
         ) : null}
+        {frame?.nilm?.unknownW != null && (
+          <StatCard
+            label="Unknown power"
+            value={formatWatts(frame.nilm.unknownW)}
+            sub={<span>not matched to any device</span>}
+          />
+        )}
         <StatCard
           label="Always on"
           value={formatWatts(summary.data?.alwaysOnW)}

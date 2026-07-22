@@ -39,6 +39,10 @@ export function kindOf(event: AppEvent): AlertKind | null {
       return 'alwayson_creep';
     case 'anomaly.device':
       return 'device_anomaly';
+    // NILM on/off edges drive MQTT state, not notifications.
+    case 'nilm.device.on':
+    case 'nilm.device.off':
+      return null;
   }
 }
 
@@ -134,6 +138,22 @@ export function formatEvent(event: AppEvent): FormattedEvent {
         body: `${event.direction === 'up' ? 'Up' : 'Down'} ${event.pct.toFixed(0)}% vs usual`,
         priority: 'default',
         tags: [event.direction === 'up' ? 'arrow_up' : 'arrow_down'],
+      };
+    // Unreachable in practice (kindOf gates these to null) but the switch
+    // stays exhaustive.
+    case 'nilm.device.on':
+      return {
+        title: `${event.name} started`,
+        body: `Drawing ~${fmtW(event.w)} W`,
+        priority: 'default',
+        tags: ['electric_plug'],
+      };
+    case 'nilm.device.off':
+      return {
+        title: `${event.name} finished`,
+        body: `Ran for ${fmtMinutes(event.runtimeS)}`,
+        priority: 'default',
+        tags: ['stopwatch'],
       };
   }
 }

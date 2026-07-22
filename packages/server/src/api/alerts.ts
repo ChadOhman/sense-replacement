@@ -11,6 +11,8 @@ import {
 
 const detectionSettingsSchema = z.object({
   stallMaxDutyCycle: z.number().min(0.05).max(0.9),
+  nilmTriggerW: z.number().min(5).max(500),
+  nilmClusterSplitDistance: z.number().min(20).max(2000),
 });
 
 const alertSettingsSchema = z.object({
