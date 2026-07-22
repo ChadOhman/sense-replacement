@@ -48,6 +48,11 @@ const ctx: AppContext = {
   getActiveNeutralEpisode: () => null,
   getActiveStall: () => null,
   applyDetectionSettings: () => undefined,
+  getNilmState: () => null,
+  reloadNilmProfiles: () => undefined,
+  runNilmClustering: () => {
+    throw new Error('collectors not started');
+  },
   events: new EventEmitter(),
   costs: undefined as unknown as AppContext['costs'], // assigned just below
   log,

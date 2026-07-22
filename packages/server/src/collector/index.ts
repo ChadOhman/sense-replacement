@@ -1,4 +1,5 @@
 import type { AppContext } from '../context.js';
+import { NilmEngine } from '../nilm/engine.js';
 import { Scheduler } from './scheduler.js';
 import { RealtimeCollector } from './realtime.js';
 import { registerTrendsJobs } from './trends.js';
@@ -18,7 +19,8 @@ export function startCollectors(ctx: AppContext): {
   stop(): void;
 } {
   const scheduler = new Scheduler(ctx);
-  const realtimeCollector = new RealtimeCollector(ctx);
+  const nilmEngine = new NilmEngine(ctx);
+  const realtimeCollector = new RealtimeCollector(ctx, nilmEngine);
 
   // device-sync first so real metadata lands before realtime's synthetic rows
   registerDeviceSyncJob(ctx, scheduler);
@@ -29,6 +31,9 @@ export function startCollectors(ctx: AppContext): {
   registerHealthJobs(ctx, scheduler);
   registerBackupJob(ctx, scheduler);
   registerReportJob(ctx, scheduler);
+  scheduler.register('nilm-cluster', 3600_000, async () => {
+    nilmEngine.runClusteringPass();
+  });
 
   realtimeCollector.start();
   ctx.getActiveBrownout = () => realtimeCollector.activeBrownout;
@@ -43,6 +48,9 @@ export function startCollectors(ctx: AppContext): {
     return a ? { startedTs: a.startedTs, spikeCount: a.spikeCount, avgSpikeW: a.avgSpikeW } : null;
   };
   ctx.applyDetectionSettings = () => realtimeCollector.applyDetectionSettings();
+  ctx.getNilmState = () => nilmEngine.liveState;
+  ctx.reloadNilmProfiles = () => nilmEngine.reloadProfiles();
+  ctx.runNilmClustering = () => nilmEngine.runClusteringPass();
   ctx.sense.startRealtime();
 
   return {

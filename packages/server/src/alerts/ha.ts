@@ -4,7 +4,7 @@
  * messages; the actual publish loop lives elsewhere.
  */
 
-import type { LiveFrame } from '@sense/shared';
+import type { LiveFrame, NilmLiveState } from '@sense/shared';
 
 export interface MqttMessage {
   topic: string;
@@ -239,6 +239,104 @@ export function frameMessages(frame: LiveFrame, changedToOff: string[]): MqttMes
     messages.push({ topic: `${BASE_TOPIC}/device/${id}/state`, payload: 'OFF', retain: false });
   }
 
+  return messages;
+}
+
+/**
+ * Discovery configs for the local-NILM entities: the unknown-power residual
+ * sensor plus one power sensor + one binary sensor per labeled NILM device.
+ * NILM ids are local integers under `sense/nilm/...` topics with
+ * `sense_nilm_...` unique ids, so they can never collide with the
+ * `objectId()`-derived cloud-device entities.
+ */
+export function nilmDiscoveryMessages(devices: { id: number; name: string }[]): MqttMessage[] {
+  const messages: MqttMessage[] = [
+    discoveryMsg(
+      'sensor',
+      'nilm_unknown_power',
+      sensorPayload({
+        name: 'Unknown Power',
+        uniqueId: 'sense_nilm_unknown_power',
+        stateTopic: `${BASE_TOPIC}/nilm/unknown_power`,
+        unitOfMeasurement: 'W',
+        deviceClass: 'power',
+        stateClass: 'measurement',
+      }),
+    ),
+    discoveryMsg(
+      'sensor',
+      'nilm_baseline_power',
+      sensorPayload({
+        name: 'Baseline Power',
+        uniqueId: 'sense_nilm_baseline_power',
+        stateTopic: `${BASE_TOPIC}/nilm/baseline_power`,
+        unitOfMeasurement: 'W',
+        deviceClass: 'power',
+        stateClass: 'measurement',
+      }),
+    ),
+  ];
+  for (const device of devices) {
+    messages.push(
+      discoveryMsg(
+        'sensor',
+        `nilm_device_${device.id}_power`,
+        sensorPayload({
+          name: `${device.name} Power (NILM)`,
+          uniqueId: `sense_nilm_device_${device.id}_power`,
+          stateTopic: `${BASE_TOPIC}/nilm/device/${device.id}/power`,
+          unitOfMeasurement: 'W',
+        }),
+      ),
+    );
+    messages.push(
+      discoveryMsg(
+        'binary_sensor',
+        `nilm_device_${device.id}`,
+        binarySensorPayload({
+          name: `${device.name} (NILM)`,
+          uniqueId: `sense_nilm_device_${device.id}`,
+          stateTopic: `${BASE_TOPIC}/nilm/device/${device.id}/state`,
+        }),
+      ),
+    );
+  }
+  return messages;
+}
+
+/**
+ * Per-frame NILM state messages: the unknown/baseline residuals plus
+ * power/ON for each matched-ON device. `changedToOff` carries ids whose OFF
+ * edge fired since the last publish — same convention as frameMessages.
+ */
+export function nilmFrameMessages(state: NilmLiveState, changedToOff: number[]): MqttMessage[] {
+  const messages: MqttMessage[] = [];
+  if (state.unknownW !== null) {
+    messages.push({
+      topic: `${BASE_TOPIC}/nilm/unknown_power`,
+      payload: state.unknownW.toFixed(1),
+      retain: false,
+    });
+  }
+  if (state.baselineW !== null) {
+    messages.push({
+      topic: `${BASE_TOPIC}/nilm/baseline_power`,
+      payload: state.baselineW.toFixed(1),
+      retain: false,
+    });
+  }
+  for (const device of state.devices) {
+    messages.push({
+      topic: `${BASE_TOPIC}/nilm/device/${device.id}/power`,
+      payload: device.estW.toFixed(1),
+      retain: false,
+    });
+    messages.push({ topic: `${BASE_TOPIC}/nilm/device/${device.id}/state`, payload: 'ON', retain: false });
+  }
+  for (const id of changedToOff) {
+    messages.push({ topic: `${BASE_TOPIC}/nilm/device/${id}/power`, payload: '0', retain: false });
+    messages.push({ topic: `${BASE_TOPIC}/nilm/device/${id}/state`, payload: 'OFF', retain: false });
+  }
   return messages;
 }
 

@@ -5,6 +5,7 @@ import { get } from './api/client.js';
 import { Live } from './pages/Live.js';
 import { Devices } from './pages/Devices.js';
 import { DeviceDetail } from './pages/DeviceDetail.js';
+import { Detection } from './pages/Detection.js';
 import { Trends } from './pages/Trends.js';
 import { PowerQuality } from './pages/PowerQuality.js';
 import { Reports } from './pages/Reports.js';
@@ -14,6 +15,7 @@ import { SetupMfa } from './pages/SetupMfa.js';
 const NAV = [
   { to: '/', label: 'Live', icon: '⚡' },
   { to: '/devices', label: 'Devices', icon: '🔌' },
+  { to: '/detection', label: 'Detection', icon: '🧩' },
   { to: '/trends', label: 'Trends', icon: '📊' },
   { to: '/power-quality', label: 'Power', icon: '🩺' },
   { to: '/reports', label: 'Reports', icon: '📄' },
@@ -131,6 +133,7 @@ export function App() {
           <Route path="/" element={<Live />} />
           <Route path="/devices" element={<Devices />} />
           <Route path="/devices/:id" element={<DeviceDetail />} />
+          <Route path="/detection" element={<Detection />} />
           <Route path="/trends" element={<Trends />} />
           <Route path="/power-quality" element={<PowerQuality />} />
           <Route path="/reports" element={<Reports />} />

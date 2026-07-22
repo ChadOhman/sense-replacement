@@ -1,6 +1,14 @@
 import type { LiveFrame } from '@sense/shared';
 import { describe, expect, it } from 'vitest';
-import { alertMessages, discoveryMessages, energyMessage, frameMessages, objectId } from './ha.js';
+import {
+  alertMessages,
+  discoveryMessages,
+  energyMessage,
+  frameMessages,
+  nilmDiscoveryMessages,
+  nilmFrameMessages,
+  objectId,
+} from './ha.js';
 
 interface DiscoveryPayload {
   name: string;
@@ -168,5 +176,45 @@ describe('objectId', () => {
     expect(objectId('Living Room Lamp')).toBe('living_room_lamp');
     expect(objectId('already_ok_123')).toBe('already_ok_123');
     expect(objectId('--weird!!id--')).toBe('weird_id');
+  });
+});
+
+describe('nilmDiscoveryMessages', () => {
+  it('advertises the residual sensors plus 2 entities per NILM device, retained', () => {
+    const messages = nilmDiscoveryMessages([{ id: 3, name: 'Fridge' }]);
+    // unknown_power + baseline_power + per-device power sensor + binary sensor
+    expect(messages).toHaveLength(4);
+    for (const msg of messages) expect(msg.retain).toBe(true);
+    const uniqueIds = messages.map((m) => parse(m.payload).unique_id);
+    expect(uniqueIds).toContain('sense_nilm_unknown_power');
+    expect(uniqueIds).toContain('sense_nilm_baseline_power');
+    expect(uniqueIds).toContain('sense_nilm_device_3_power');
+    expect(uniqueIds).toContain('sense_nilm_device_3');
+    // never collides with cloud-device unique ids (sense_device_...)
+    expect(uniqueIds.every((id) => id.startsWith('sense_nilm_'))).toBe(true);
+  });
+});
+
+describe('nilmFrameMessages', () => {
+  it('publishes residuals, ON devices, and queued OFF edges', () => {
+    const messages = nilmFrameMessages(
+      {
+        baselineW: 230.4,
+        unknownW: -12.34,
+        devices: [{ id: 3, name: 'Fridge', estW: 121.7, sinceTs: 1000 }],
+      },
+      [7],
+    );
+    expect(messages).toContainEqual({ topic: 'sense/nilm/unknown_power', payload: '-12.3', retain: false });
+    expect(messages).toContainEqual({ topic: 'sense/nilm/baseline_power', payload: '230.4', retain: false });
+    expect(messages).toContainEqual({ topic: 'sense/nilm/device/3/power', payload: '121.7', retain: false });
+    expect(messages).toContainEqual({ topic: 'sense/nilm/device/3/state', payload: 'ON', retain: false });
+    expect(messages).toContainEqual({ topic: 'sense/nilm/device/7/power', payload: '0', retain: false });
+    expect(messages).toContainEqual({ topic: 'sense/nilm/device/7/state', payload: 'OFF', retain: false });
+  });
+
+  it('omits residual messages before the baseline warms up', () => {
+    const messages = nilmFrameMessages({ baselineW: null, unknownW: null, devices: [] }, []);
+    expect(messages).toEqual([]);
   });
 });

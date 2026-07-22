@@ -36,6 +36,16 @@ If this project keeps your monitor alive, you can
 - **Your data, actually yours** — CSV and full-database exports from the UI,
   automatic nightly backups (`BACKUP_DIR` for a NAS mount), and a generated
   report each billing cycle.
+- **Local detection (NILM, experimental)** — cloud-independent device
+  detection: sudden power changes on the 1 Hz stream are captured as
+  transient waveforms, clustered, and labeled by you on the Detection page;
+  labeled devices are then matched live (with per-device off-delay and
+  match-strictness tuning), published to Home Assistant, and rolled into a
+  live "unknown power" residual so 100% of your draw is always accounted
+  for. If Sense's cloud ML ever disappears, this keeps device detection
+  working from the raw stream alone. Approach inspired by
+  [nonsense-powermonitor](https://github.com/Nils154/nonsense-powermonitor)
+  (clean-room TypeScript reimplementation of the ideas).
 - **Solar (experimental)** — monitors with solar CTs are auto-detected:
   live production + net readouts, a production series on the live chart,
   daily production archived alongside consumption, and production totals in

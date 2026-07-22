@@ -1,6 +1,13 @@
 import mqtt from 'mqtt';
 import { onEvent, type AppContext } from '../context.js';
-import { alertMessages, discoveryMessages, energyMessage, frameMessages } from './ha.js';
+import {
+  alertMessages,
+  discoveryMessages,
+  energyMessage,
+  frameMessages,
+  nilmDiscoveryMessages,
+  nilmFrameMessages,
+} from './ha.js';
 import { todayLocal } from '../lib/time.js';
 
 const PUBLISH_INTERVAL_MS = 2000;
@@ -14,6 +21,7 @@ export class MqttPublisher {
   private discoveryTimer: NodeJS.Timeout | null = null;
   private lastFrameTs = 0;
   private pendingOff = new Set<string>();
+  private pendingNilmOff = new Set<number>();
   private lastAlertState = '';
 
   constructor(private readonly ctx: AppContext) {}
@@ -36,6 +44,7 @@ export class MqttPublisher {
 
     onEvent(this.ctx, (event) => {
       if (event.type === 'device.off') this.pendingOff.add(event.deviceId);
+      if (event.type === 'nilm.device.off') this.pendingNilmOff.add(event.deviceId);
     });
 
     this.timer = setInterval(() => this.tick(), PUBLISH_INTERVAL_MS);
@@ -60,6 +69,12 @@ export class MqttPublisher {
     for (const msg of discoveryMessages(rows)) {
       this.client.publish(msg.topic, msg.payload, { retain: msg.retain ?? false });
     }
+    const nilmRows = this.ctx.db
+      .prepare('SELECT id, name FROM nilm_devices')
+      .all() as { id: number; name: string }[];
+    for (const msg of nilmDiscoveryMessages(nilmRows)) {
+      this.client.publish(msg.topic, msg.payload, { retain: msg.retain ?? false });
+    }
   }
 
   private tick(): void {
@@ -71,6 +86,13 @@ export class MqttPublisher {
       this.pendingOff.clear();
       for (const msg of frameMessages(frame, off)) {
         this.client.publish(msg.topic, msg.payload, { retain: msg.retain ?? false });
+      }
+      if (frame.nilm) {
+        const nilmOff = [...this.pendingNilmOff];
+        this.pendingNilmOff.clear();
+        for (const msg of nilmFrameMessages(frame.nilm, nilmOff)) {
+          this.client.publish(msg.topic, msg.payload, { retain: msg.retain ?? false });
+        }
       }
     }
 

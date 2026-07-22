@@ -88,6 +88,22 @@ profile is deliberately conservative:
   4-year backfill is ~1,500 requests spread over ~25 minutes, once ever.
 - Steady state after backfill is ~5 REST requests per 15 minutes.
 
+## Local UDP broadcast (a dead end)
+
+A natural question is whether the monitor can be read locally, skipping the
+cloud entirely. The answer, established by
+[nonsense-powermonitor](https://github.com/Nils154/nonsense-powermonitor)'s
+reverse-engineering, is no: the Sense monitor does broadcast on **UDP port
+9999** using the TP-Link/Kasa XOR autokey cipher (key 171, the smart-plug
+protocol), but the packets arrive only about every 2 seconds and carry no
+usable power data. Don't spend time on this path — the cloud WebSocket is
+the only realtime source the hardware offers.
+
+(That project ultimately replaced the Sense hardware with an Enphase Envoy
+polled at 1 Hz. Its event-based NILM approach — capture transient waveforms,
+cluster them, let a human label clusters — inspired this app's local
+Detection feature, reimplemented clean-room in TypeScript.)
+
 ## When Sense changes something
 
 Failure behavior is designed so the app degrades instead of breaking:
