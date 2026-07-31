@@ -16,6 +16,8 @@ export interface RealtimeOptions {
   onAuthFailure: () => Promise<void>;
   mode: 'persistent' | 'duty-cycle';
   log: (msg: string) => void;
+  /** Override the realtime endpoint. Tests point this at a local server. */
+  baseUrl?: string;
 }
 
 /**
@@ -62,13 +64,21 @@ export class SenseRealtimeSocket {
 
   private teardown(): void {
     if (this.ws) {
-      this.ws.removeAllListeners();
+      const ws = this.ws;
+      this.ws = null;
+      ws.removeAllListeners();
+      // Closing a socket that never finished its handshake (e.g. the server
+      // rejected it with a 401) makes ws emit 'error' on a later tick. That
+      // emit lands after removeAllListeners() and outside the try/catch, so
+      // without a listener here Node would throw and take the process down.
+      ws.on('error', () => {
+        /* connection already failing — nothing left to clean up */
+      });
       try {
-        this.ws.close();
+        ws.close();
       } catch {
         /* already closed */
       }
-      this.ws = null;
     }
     if (this.connected) {
       this.connected = false;
@@ -84,7 +94,8 @@ export class SenseRealtimeSocket {
       this.scheduleReconnect();
       return;
     }
-    const url = `${REALTIME_BASE}/${monitorId}/realtimefeed?access_token=${encodeURIComponent(token)}`;
+    const base = this.opts.baseUrl ?? REALTIME_BASE;
+    const url = `${base}/${monitorId}/realtimefeed?access_token=${encodeURIComponent(token)}`;
     const ws = new WebSocket(url);
     this.ws = ws;
 
