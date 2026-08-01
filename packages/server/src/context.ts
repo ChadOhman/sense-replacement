@@ -11,6 +11,7 @@ import type {
 } from '@sense/shared';
 import { DEFAULT_ALERT_SETTINGS, DEFAULT_DETECTION_SETTINGS } from '@sense/shared';
 import type { CostEngine } from './lib/costs.js';
+import type { Updater } from './update/installer.js';
 import type { Config } from './config.js';
 import type { AppEvent } from './alerts/events.js';
 import { EVENT_NAME } from './alerts/events.js';
@@ -49,6 +50,8 @@ export interface AppContext {
   events: EventEmitter;
   /** Rate-aware cost calculations (lib/costs.ts); assigned in index.ts. */
   costs: CostEngine;
+  /** Self-update orchestration (update/installer.ts); assigned in index.ts. */
+  updater: Updater;
   log: (msg: string) => void;
 }
 

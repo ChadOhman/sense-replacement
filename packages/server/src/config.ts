@@ -23,6 +23,10 @@ const envSchema = z.object({
   LAT: z.string().default(''),
   LON: z.string().default(''),
   BACKUP_DIR: z.string().default(''),
+  SENSE_UPDATE_DIR: z.string().default(''),
+  SENSE_UPDATE_MANIFEST_URL: z
+    .string()
+    .default('https://github.com/ChadOhman/sense-replacement/releases/download/latest/manifest.json'),
 });
 
 export type Config = {
@@ -42,6 +46,10 @@ export type Config = {
   lat: string;
   lon: string;
   backupDir: string;
+  /** Updater workspace (one-time server setup creates it); '' = default /opt/sense-updates. */
+  updateDir: string;
+  /** Pinned release manifest URL; overridable only via env, for testing. */
+  updateManifestUrl: string;
 };
 
 export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
@@ -73,5 +81,7 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
     lat: e.LAT,
     lon: e.LON,
     backupDir: e.BACKUP_DIR,
+    updateDir: e.SENSE_UPDATE_DIR,
+    updateManifestUrl: e.SENSE_UPDATE_MANIFEST_URL,
   };
 }

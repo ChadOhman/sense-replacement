@@ -19,7 +19,29 @@ Health and app state. Returns `authState` (`ok` | `needs_mfa` | `error` |
 (`state`, `cursor`, `daysArchived`), `dbSizeBytes`, `mock`, `lastBackup`,
 `solar` (true once solar CTs are detected), and the currently active
 power-quality events: `activeBrownout`, `activeNeutralEpisode`, `activeStall`
-(each `null` when quiet).
+(each `null` when quiet), `version` (`sha`/`shortSha`/`builtAt` of the running
+build), and `update` (`supported`, `updateAvailable`, `phase`).
+
+### `GET /api/update/status`
+Self-update state: `supported` (+ `unsupportedReason` when not), `current`
+version, `latest` known build (from the rolling GitHub release), and
+`updateAvailable`, `lastCheckedTs`, `checkError`, `state` (the persisted
+update state machine: `phase`, `steps[]`, `error`, `logTail[]`), and
+`previous` (the version in the rollback slot, if any).
+
+### `POST /api/update/check`
+Fetches the release manifest now and returns a fresh
+`GET /api/update/status` payload.
+
+### `POST /api/update/install`
+Starts installing the latest build (no body — the target is always the
+pinned repo's rolling release). `202` on start; `409` if a run is already in
+progress; `400` when unsupported or no update is available. The server exits
+mid-run to apply the swap — poll `GET /api/update/status` through the
+restart.
+
+### `POST /api/update/rollback`
+Swaps back to the previous version kept on disk. `202`/`409`/`400` as above.
 
 ### `GET /api/setup/status` · `POST /api/setup/mfa`
 MFA bootstrap. `POST` body `{"totp": "123456"}` completes a pending

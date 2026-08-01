@@ -28,3 +28,30 @@ jobs:
         with:
           context: .
           push: false
+
+  # Rolling self-update artifact: every green main build replaces the
+  # 'latest' prerelease that deployed instances poll (see docs in README).
+  release:
+    needs: test
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm build # gen-version.mjs picks up GITHUB_SHA
+      - run: ./scripts/build-artifact.sh
+      - name: Publish rolling release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release delete latest --yes --cleanup-tag || true
+          gh release create latest out/sense-*.tar.gz out/sense-*.sha256 out/manifest.json \
+            --prerelease --title "Rolling build ${GITHUB_SHA::7}" \
+            --notes "Automated build of ${GITHUB_SHA}"

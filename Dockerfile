@@ -8,6 +8,7 @@ COPY packages/server/package.json packages/server/
 COPY packages/web/package.json packages/web/
 RUN pnpm install --frozen-lockfile
 COPY tsconfig.base.json ./
+COPY scripts ./scripts
 COPY packages ./packages
 RUN pnpm -r build
 # Produce a pruned production install for the server (keeps compiled better-sqlite3).
