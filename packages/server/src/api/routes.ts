@@ -16,6 +16,7 @@ import { registerExportRoutes } from './export.js';
 import { registerReportRoutes } from './reports.js';
 import { registerMetricsRoutes } from './metrics.js';
 import { registerNilmRoutes } from './nilm.js';
+import { registerUpdateRoutes } from './update.js';
 
 export async function registerRoutes(app: FastifyInstance, ctx: AppContext): Promise<void> {
   await app.register(
@@ -35,6 +36,7 @@ export async function registerRoutes(app: FastifyInstance, ctx: AppContext): Pro
       registerExportRoutes(api, ctx);
       registerReportRoutes(api, ctx);
       registerNilmRoutes(api, ctx);
+      registerUpdateRoutes(api, ctx);
     },
     { prefix: '/api' },
   );

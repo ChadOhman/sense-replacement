@@ -1,7 +1,9 @@
+import { useEffect, useState } from 'react';
 import { NavLink, Route, Routes } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import type { StatusResponse } from '@sense/shared';
 import { get } from './api/client.js';
+import { UpdateModal } from './components/UpdateModal.js';
 import { Live } from './pages/Live.js';
 import { Devices } from './pages/Devices.js';
 import { DeviceDetail } from './pages/DeviceDetail.js';
@@ -70,12 +72,24 @@ function Nav() {
   );
 }
 
+const UPDATE_ACTIVE_PHASES = ['downloading', 'verifying', 'installing', 'restarting', 'rolling-back'];
+
 export function App() {
   const status = useQuery({
     queryKey: ['status'],
     queryFn: () => get<StatusResponse>('/api/status'),
     refetchInterval: 5000,
   });
+
+  const [updateModalOpen, setUpdateModalOpen] = useState(false);
+  const updatePhase = status.data?.update?.phase ?? 'idle';
+  const updateInFlight = UPDATE_ACTIVE_PHASES.includes(updatePhase);
+
+  // Reopen the modal automatically if an update is in flight (covers a page
+  // refresh mid-update).
+  useEffect(() => {
+    if (updateInFlight) setUpdateModalOpen(true);
+  }, [updateInFlight]);
 
   if (status.isLoading) {
     return (
@@ -85,7 +99,10 @@ export function App() {
     );
   }
 
-  if (status.isError) {
+  // During a self-update restart the server is briefly unreachable. Keep the
+  // app (and the update modal) mounted on stale data instead of swapping to
+  // the full-screen error, which would unmount the modal mid-flight.
+  if (status.isError && !(updateInFlight && status.data)) {
     return (
       <div className="flex min-h-screen items-center justify-center p-4">
         <div className="card max-w-sm p-6 text-center">
@@ -129,6 +146,22 @@ export function App() {
             Sense cloud disconnected — showing archived data
           </div>
         )}
+        {s.update?.supported && (s.update.updateAvailable || updateInFlight) && (
+          <div
+            className="mb-4 flex items-center justify-between rounded-md px-3 py-2 text-sm"
+            style={{ background: 'var(--surface-2)', color: 'var(--text-primary)' }}
+          >
+            <span>{updateInFlight ? 'Update in progress…' : 'A software update is available'}</span>
+            <button
+              onClick={() => setUpdateModalOpen(true)}
+              className="rounded-md px-3 py-1 text-sm font-medium"
+              style={{ background: 'var(--series-1)', color: '#fff' }}
+            >
+              {updateInFlight ? 'Show progress' : 'Update'}
+            </button>
+          </div>
+        )}
+        {updateModalOpen && <UpdateModal onClose={() => setUpdateModalOpen(false)} />}
         <Routes>
           <Route path="/" element={<Live />} />
           <Route path="/devices" element={<Devices />} />

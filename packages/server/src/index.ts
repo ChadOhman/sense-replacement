@@ -1,4 +1,4 @@
-import { existsSync } from 'node:fs';
+import { existsSync, rmSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import Fastify from 'fastify';
@@ -16,6 +16,12 @@ import { registerRoutes } from './api/routes.js';
 import { Notifier } from './alerts/notifier.js';
 import { MqttPublisher } from './alerts/mqtt.js';
 import { CostEngine } from './lib/costs.js';
+import { Scheduler } from './collector/scheduler.js';
+import { getUpdateEnv } from './update/env.js';
+import { checkForUpdate } from './update/check.js';
+import { getVersion } from './update/version.js';
+import { reconcileOnBoot } from './update/state.js';
+import { Updater } from './update/installer.js';
 import type { AppContext } from './context.js';
 
 const log = (msg: string): void => {
@@ -25,6 +31,11 @@ const log = (msg: string): void => {
 const config = loadConfig();
 const db = openDb(config.dataDir);
 const kv = new KvStore(db);
+
+// Resolve any update that was in flight when the previous process exited —
+// before anything else can start a new one.
+const updateEnv = getUpdateEnv(config);
+reconcileOnBoot(kv, getVersion(), updateEnv.updateDir);
 
 const sense = config.mock
   ? new SenseMockClient(config.tz, 'fixtures', config.mockSolar)
@@ -55,9 +66,25 @@ const ctx: AppContext = {
   },
   events: new EventEmitter(),
   costs: undefined as unknown as AppContext['costs'], // assigned just below
+  updater: undefined as unknown as AppContext['updater'], // assigned just below
   log,
 };
 ctx.costs = new CostEngine(ctx);
+ctx.updater = new Updater({ kv, env: updateEnv, manifestUrl: config.updateManifestUrl, log });
+
+// Update checks run on their own scheduler, not with the collectors — those
+// are gated on Sense auth, and updates must work even when auth is broken.
+const updateScheduler = new Scheduler(ctx);
+if (updateEnv.supported) {
+  updateScheduler.register(
+    'update-check',
+    30 * 60_000,
+    async () => {
+      await checkForUpdate(kv, config.updateManifestUrl);
+    },
+    { runImmediately: true },
+  );
+}
 
 const notifier = new Notifier(ctx);
 notifier.start();
@@ -110,12 +137,21 @@ if (existsSync(webDist)) {
 await app.listen({ host: '0.0.0.0', port: config.port });
 log(`listening on :${config.port}${config.mock ? ' (mock mode)' : ''}`);
 
+// Healthy boot: clear the wrapper's crash-loop bookkeeping (see sense-run.sh).
+try {
+  rmSync(join(updateEnv.updateDir, 'verify.flag'), { force: true });
+  rmSync(join(updateEnv.updateDir, 'boot-attempts'), { force: true });
+} catch {
+  /* updater workspace absent — nothing to clear */
+}
+
 let shuttingDown = false;
 async function shutdown(): Promise<void> {
   if (shuttingDown) return;
   shuttingDown = true;
   log('shutting down...');
   if (authPoll) clearInterval(authPoll);
+  updateScheduler.stop();
   mqttPublisher.stop();
   collectors?.stop();
   await sense.stop();

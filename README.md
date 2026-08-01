@@ -74,6 +74,45 @@ restarts.
 Your database lives at `./data/sense.db`. Back that file up and your energy
 history is safe forever.
 
+## Self-updating (bare-metal / systemd installs)
+
+Every push to `main` that passes CI publishes a rolling release; the app
+checks for it every 30 minutes and shows an **Update** banner. Click it, watch
+the modal (download → verify → install deps → stage → restart), done. The
+replaced version is kept on disk and Settings offers a one-click **Roll back**.
+If a new version fails to boot 3 times in a row, the wrapper auto-reverts.
+Docker installs update by pulling a new image instead — the in-app updater
+disables itself there, and likewise in dev builds.
+
+One-time setup on the host (adjust paths/user if yours differ; assumes the
+app lives at `/opt/sense` running as user `sense` under a systemd unit named
+`sense`):
+
+```sh
+install -d -o sense -g sense /opt/sense-updates /opt/sense-updates/staging \
+  /opt/sense-updates/download /opt/sense-updates/previous
+install -d -o root -g root /opt/sense-updates/bin
+install -o root -g root -m 755 /opt/sense/scripts/sense-run.sh /opt/sense-updates/bin/sense-run.sh
+sudo -u sense pnpm --version   # verify pnpm works as the service user
+mkdir -p /etc/systemd/system/sense.service.d
+cat > /etc/systemd/system/sense.service.d/self-update.conf <<'UNIT'
+[Service]
+ExecStart=
+ExecStart=/opt/sense-updates/bin/sense-run.sh
+WorkingDirectory=/opt/sense
+Restart=always
+RestartSec=3
+[Unit]
+StartLimitIntervalSec=120
+StartLimitBurst=10
+UNIT
+systemctl daemon-reload && systemctl restart sense && systemctl is-active sense
+```
+
+Make sure `DATA_DIR` in `/opt/sense/.env` is an **absolute** path. The updater
+never touches `data/` or `.env*` — swaps move code only, and everything it
+does is logged to `/opt/sense-updates/update.log`.
+
 ## Development
 
 ```sh
@@ -125,3 +164,4 @@ WebSocket, MQTT topics, and Prometheus metrics) — see
 | `ELECTRICITY_RATE_CENTS_PER_KWH` | `16.5` | Cost estimates (editable in Settings) |
 | `SENSE_MOCK` | `0` | `1` = fixture/synthetic replay, no cloud access |
 | `REALTIME_MODE` | `persistent` | `duty-cycle` = 50s on / 10s off stream |
+| `SENSE_UPDATE_DIR` | `/opt/sense-updates` | Self-update workspace (see Self-updating) |

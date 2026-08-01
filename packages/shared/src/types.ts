@@ -241,6 +241,14 @@ export interface AppStatus {
     spikeCount: number;
     avgSpikeW: number;
   } | null;
+  /** Build identity of the running server. */
+  version: VersionInfo;
+  /** Self-update summary; full detail at GET /api/update/status. */
+  update: {
+    supported: boolean;
+    updateAvailable: boolean;
+    phase: UpdatePhase;
+  };
 }
 
 export interface Settings {
@@ -331,3 +339,39 @@ export const DEFAULT_ALERT_SETTINGS: AlertSettings = {
   finishedDeviceIds: [],
   finishedMinRuntimeS: 300,
 };
+
+/** Build identity of the running server (scripts/gen-version.mjs). */
+export interface VersionInfo {
+  sha: string;
+  shortSha: string;
+  builtAt: string | null; // null for dev builds
+}
+
+export type UpdatePhase =
+  | 'idle'
+  | 'downloading'
+  | 'verifying'
+  | 'installing'
+  | 'restarting'
+  | 'rolling-back'
+  | 'done'
+  | 'failed';
+
+export interface UpdateStep {
+  name: string;
+  status: 'pending' | 'active' | 'ok' | 'error';
+  detail?: string;
+}
+
+/** Persisted in the KV store so it survives the mid-update restart. */
+export interface UpdateState {
+  phase: UpdatePhase;
+  kind: 'update' | 'rollback';
+  fromSha: string;
+  targetSha: string | null;
+  startedTs: number;
+  updatedTs: number;
+  steps: UpdateStep[];
+  error: string | null;
+  logTail: string[];
+}

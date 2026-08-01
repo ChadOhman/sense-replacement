@@ -17,7 +17,9 @@ import type {
   NeutralHealth,
   Outage,
   StallEvent,
+  UpdateState,
   UsageBucket,
+  VersionInfo,
   VoltageEvent,
 } from './types.js';
 
@@ -223,4 +225,18 @@ export interface SetupStatusResponse {
 /** POST /api/setup/mfa */
 export interface MfaRequest {
   totp: string;
+}
+
+/** GET /api/update/status, POST /api/update/check */
+export interface UpdateStatusResponse {
+  supported: boolean;
+  unsupportedReason?: string;
+  current: VersionInfo;
+  latest: { sha: string; shortSha: string; builtAt: string; sizeBytes: number } | null;
+  updateAvailable: boolean;
+  lastCheckedTs: number | null;
+  checkError: string | null;
+  state: UpdateState;
+  /** Version kept in the rollback slot, when one exists. */
+  previous: VersionInfo | null;
 }
