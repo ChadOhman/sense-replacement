@@ -12,19 +12,30 @@ export function hourInWindow(hour: number, startHour: number, endHour: number): 
   return hour >= startHour || hour < endHour;
 }
 
-/** Rate in cents/kWh for a local hour. month 1-12, weekday 0(Sun)-6(Sat),
- *  hour 0-23. TOU: first period matching (months omitted or includes month)
- *  AND (weekdays includes weekday) AND hourInWindow(hour, startHour,
- *  endHour) wins; else defaultCents. Flat: cents. */
-export function rateForHour(plan: RatePlan, month: number, weekday: number, hour: number): number {
-  if (plan.type === 'flat') return plan.cents;
+/** Rate in cents/kWh for a local hour, plus the name of the TOU period it came
+ *  from (null for a flat plan or an hour no period matched). month 1-12,
+ *  weekday 0(Sun)-6(Sat), hour 0-23. TOU: first period matching (months omitted
+ *  or includes month) AND (weekdays includes weekday) AND hourInWindow(hour,
+ *  startHour, endHour) wins; else defaultCents. Flat: cents. */
+export function rateInfoForHour(
+  plan: RatePlan,
+  month: number,
+  weekday: number,
+  hour: number,
+): { cents: number; periodName: string | null } {
+  if (plan.type === 'flat') return { cents: plan.cents, periodName: null };
   for (const period of plan.periods) {
     if (period.months && !period.months.includes(month)) continue;
     if (!period.weekdays.includes(weekday)) continue;
     if (!hourInWindow(hour, period.startHour, period.endHour)) continue;
-    return period.cents;
+    return { cents: period.cents, periodName: period.name };
   }
-  return plan.defaultCents;
+  return { cents: plan.defaultCents, periodName: null };
+}
+
+/** Rate in cents/kWh for a local hour. See rateInfoForHour for the matching rules. */
+export function rateForHour(plan: RatePlan, month: number, weekday: number, hour: number): number {
+  return rateInfoForHour(plan, month, weekday, hour).cents;
 }
 
 /** Cost in CURRENCY UNITS (cents/100) for one local day given per-hour kWh.

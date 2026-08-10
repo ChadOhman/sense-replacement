@@ -167,6 +167,11 @@ export interface SummaryResponse {
   monthCost: number;
   alwaysOnW: number | null;
   nowW: number | null;
+  /** Rate in effect right now (cents/kWh), for costing live power. */
+  rateCentsPerKwh: number;
+  /** Name of the TOU period in effect, null on a flat plan or an unmatched hour. */
+  ratePeriodName: string | null;
+  currency: string;
   /** Set when the always-on floor has crept above its 90-day baseline. */
   alwaysOnCreep: { currentW: number; baselineW: number; pct: number } | null;
   /** Solar production today (kWh); null on non-solar monitors. */

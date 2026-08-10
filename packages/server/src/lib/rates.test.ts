@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { RatePlan } from '@sense/shared';
-import { blendedRateCents, costForDayHourly, cycleWindow, forecastCycleCost, hourInWindow, rateForHour } from './rates.js';
+import { blendedRateCents, costForDayHourly, cycleWindow, forecastCycleCost, hourInWindow, rateForHour, rateInfoForHour } from './rates.js';
 
 const FLAT: RatePlan = { type: 'flat', cents: 15 };
 
@@ -90,6 +90,23 @@ describe('TOU plan', () => {
     };
     expect(rateForHour(plan, 1, 2, 10)).toBe(11); // wrong weekday
     expect(rateForHour(plan, 1, 1, 12)).toBe(11); // wrong hour
+  });
+});
+
+describe('rateInfoForHour', () => {
+  it('names the matched period, and reports null for a flat plan', () => {
+    expect(rateInfoForHour(FLAT, 7, 3, 12)).toEqual({ cents: 15, periodName: null });
+  });
+
+  it('names the matched TOU period and returns null for defaultCents hours', () => {
+    const plan: RatePlan = {
+      type: 'tou',
+      periods: [{ name: 'on-peak', weekdays: [1, 2, 3, 4, 5], startHour: 16, endHour: 21, cents: 13 }],
+      defaultCents: 7,
+    };
+    expect(rateInfoForHour(plan, 7, 3, 17)).toEqual({ cents: 13, periodName: 'on-peak' });
+    expect(rateInfoForHour(plan, 7, 3, 9)).toEqual({ cents: 7, periodName: null });
+    expect(rateInfoForHour(plan, 7, 0, 17)).toEqual({ cents: 7, periodName: null });
   });
 });
 
