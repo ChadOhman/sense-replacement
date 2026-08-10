@@ -51,8 +51,10 @@ absent until the engine has processed a frame.
 
 ### `GET /api/summary`
 Today/week/month kWh and rate-aware cost, `alwaysOnW`, `nowW`,
-`alwaysOnCreep` (`null` unless the always-on floor rose >20% and >15 W above
-its 90-day baseline), `solarTodayKwh` (`null` without solar).
+`rateCentsPerKwh` (the rate in effect right now) with `ratePeriodName` (the
+matching TOU period, `null` on a flat plan) and `currency`, `alwaysOnCreep`
+(`null` unless the always-on floor rose >20% and >15 W above its 90-day
+baseline), `solarTodayKwh` (`null` without solar).
 
 ## History
 
