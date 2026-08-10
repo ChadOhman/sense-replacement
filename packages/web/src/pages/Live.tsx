@@ -7,9 +7,38 @@ import { LivePowerChart } from '../components/charts/LivePowerChart.js';
 import { DeviceCard } from '../components/DeviceCard.js';
 import { StatCard } from '../components/StatCard.js';
 import { Skeleton } from '../components/Skeleton.js';
-import { formatKwh, formatRelativeTime, formatWatts } from '../lib/format.js';
+import { formatCurrency, formatKwh, formatRateCents, formatRelativeTime, formatWatts } from '../lib/format.js';
 
 const SAG_CHIP_THRESHOLD = 108; // visual warning tint on a leg chip
+
+/** What the current draw costs per hour if it held steady, at the rate in
+ *  effect right now. Solar-equipped homes are billed on net, so that's what we
+ *  cost — a net-negative hour is a credit, not a negative bill. */
+function CostRate({
+  watts,
+  rateCents,
+  periodName,
+  currency,
+}: {
+  watts: number;
+  rateCents: number;
+  periodName: string | null;
+  currency: string;
+}) {
+  const perHour = (watts / 1000) * (rateCents / 100);
+  let label: string;
+  if (perHour < 0) label = `${formatCurrency(-perHour, currency)}/hr credit`;
+  else if (perHour > 0 && perHour < 0.005) label = `< ${formatCurrency(0.01, currency)}/hr`;
+  else label = `${formatCurrency(perHour, currency)}/hr`;
+
+  return (
+    <div className="mt-2 text-sm tabular-nums" style={{ color: 'var(--text-muted)' }}>
+      ≈ <span style={{ color: 'var(--text-secondary)' }}>{label}</span> ·{' '}
+      {formatRateCents(rateCents, currency)}/kWh
+      {periodName && ` (${periodName})`}
+    </div>
+  );
+}
 
 function VoltageChip({ volts }: { volts: number }) {
   const low = volts < SAG_CHIP_THRESHOLD;
@@ -47,6 +76,7 @@ export function Live() {
   const neutralEpisode = status.data?.activeNeutralEpisode ?? null;
   const stall = status.data?.activeStall ?? null;
   const neutralHealth = neutralEvents.data?.health ?? null;
+  const currency = summary.data?.currency ?? 'USD';
 
   return (
     <div className="space-y-6">
@@ -122,6 +152,14 @@ export function Live() {
               )}
               <span className="tabular-nums">{frame.hz !== null ? `${frame.hz.toFixed(1)} Hz` : '—'}</span>
             </div>
+            {summary.data && (
+              <CostRate
+                watts={frame.solarW !== null ? frame.w - frame.solarW : frame.w}
+                rateCents={summary.data.rateCentsPerKwh}
+                periodName={summary.data.ratePeriodName}
+                currency={currency}
+              />
+            )}
           </>
         ) : (
           <div className="flex flex-col items-center gap-2 py-6">
@@ -141,9 +179,21 @@ export function Live() {
       </div>
 
       <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
-        <StatCard label="Today" value={formatKwh(summary.data?.todayKwh)} />
-        <StatCard label="This week" value={formatKwh(summary.data?.weekKwh)} />
-        <StatCard label="This month" value={formatKwh(summary.data?.monthKwh)} />
+        <StatCard
+          label="Today"
+          value={formatKwh(summary.data?.todayKwh)}
+          sub={summary.data && formatCurrency(summary.data.todayCost, currency)}
+        />
+        <StatCard
+          label="This week"
+          value={formatKwh(summary.data?.weekKwh)}
+          sub={summary.data && formatCurrency(summary.data.weekCost, currency)}
+        />
+        <StatCard
+          label="This month"
+          value={formatKwh(summary.data?.monthKwh)}
+          sub={summary.data && formatCurrency(summary.data.monthCost, currency)}
+        />
         {summary.data?.solarTodayKwh !== null && summary.data?.solarTodayKwh !== undefined ? (
           <StatCard
             label="Solar today"

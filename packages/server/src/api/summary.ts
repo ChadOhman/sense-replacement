@@ -1,8 +1,10 @@
 import type { FastifyInstance } from 'fastify';
 import type { SummaryResponse } from '@sense/shared';
 import type { AppContext } from '../context.js';
-import { addDays, monthOf, todayLocal } from '../lib/time.js';
+import { addDays, localRateFields, monthOf, todayLocal } from '../lib/time.js';
 import { getStoredCreep } from '../collector/health.js';
+import { getBillingSettings, getSettings } from '../context.js';
+import { rateInfoForHour } from '../lib/rates.js';
 
 export function registerSummaryRoutes(app: FastifyInstance, ctx: AppContext): void {
   const kwhForDayStmt = ctx.db.prepare(
@@ -39,6 +41,10 @@ export function registerSummaryRoutes(app: FastifyInstance, ctx: AppContext): vo
       monthCost += ctx.costs.costForDay(d);
     }
 
+    const { ratePlan } = getBillingSettings(ctx);
+    const { month, weekday, hour } = localRateFields(now, tz);
+    const rate = rateInfoForHour(ratePlan, month, weekday, hour);
+
     return {
       todayKwh,
       todayCost: ctx.costs.costForDay(today),
@@ -48,6 +54,9 @@ export function registerSummaryRoutes(app: FastifyInstance, ctx: AppContext): vo
       monthCost,
       alwaysOnW,
       nowW: ctx.ring.latest()?.w ?? null,
+      rateCentsPerKwh: rate.cents,
+      ratePeriodName: rate.periodName,
+      currency: getSettings(ctx).currency,
       alwaysOnCreep: getStoredCreep(ctx),
       solarTodayKwh:
         ctx.kv.get('solar.detected') === '1'

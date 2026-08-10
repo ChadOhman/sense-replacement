@@ -18,6 +18,22 @@ export function formatCurrency(value: number | null | undefined, currency: strin
   }
 }
 
+/** A per-kWh rate given in cents, e.g. "$0.082". Three decimals because a rate
+ *  rounded to the cent loses most of the difference between TOU periods. */
+export function formatRateCents(cents: number, currency: string): string {
+  const value = cents / 100;
+  try {
+    return new Intl.NumberFormat(undefined, {
+      style: 'currency',
+      currency,
+      minimumFractionDigits: 3,
+      maximumFractionDigits: 3,
+    }).format(value);
+  } catch {
+    return `${value.toFixed(3)} ${currency}`;
+  }
+}
+
 export function formatRelativeTime(epochSeconds: number | null | undefined): string {
   if (!epochSeconds) return 'never';
   const delta = Math.floor(Date.now() / 1000) - epochSeconds;

@@ -17,6 +17,23 @@ function dtf(tz: string): Intl.DateTimeFormat {
   return f;
 }
 
+/** Epoch seconds -> the local calendar fields the rate lookup needs:
+ *  month 1-12, weekday 0(Sun)-6(Sat), hour 0-23 in the given IANA timezone. */
+export function localRateFields(
+  ts: number,
+  tz: string,
+): { month: number; weekday: number; hour: number } {
+  const day = tsToLocalDay(ts, tz);
+  const hourStr = new Intl.DateTimeFormat('en-GB', {
+    timeZone: tz,
+    hour: '2-digit',
+    hour12: false,
+  }).format(new Date(ts * 1000));
+  // Weekday of the local day, read off a noon-UTC anchor so no offset can shift it.
+  const weekday = new Date(`${day}T12:00:00Z`).getUTCDay();
+  return { month: Number(day.slice(5, 7)), weekday, hour: Number(hourStr) % 24 };
+}
+
 /** Epoch seconds -> 'YYYY-MM-DD' in the given IANA timezone. */
 export function tsToLocalDay(ts: number, tz: string): string {
   return dtf(tz).format(new Date(ts * 1000)); // en-CA gives YYYY-MM-DD
